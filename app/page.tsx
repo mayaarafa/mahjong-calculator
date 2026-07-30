@@ -186,7 +186,7 @@ export default function Home() {
     <div className="min-h-screen bg-[#F6F1E6] shoji-grid">
       {/* Header */}
       <header className="bg-[#F6F1E6] border-b border-[#D9CBA9] sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-2xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-[2px] bg-[#179e4b] inline-block flex-shrink-0" />
             <div>
@@ -210,7 +210,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-6 space-y-5">
+      <main className="max-w-2xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4">
         {/* Sample hands strip */}
         <div>
           <p className="text-xs text-[#8A7A63] font-medium uppercase tracking-wide mb-2">Try a sample hand</p>
@@ -230,15 +230,15 @@ export default function Home() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full grid grid-cols-4">
-            <TabsTrigger value="photo" className="text-xs flex items-center gap-1.5"><Camera size={13} />Photo</TabsTrigger>
-            <TabsTrigger value="tiles" className="text-xs flex items-center gap-1.5"><LayoutGrid size={13} />Tiles</TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs flex items-center gap-1.5"><SlidersHorizontal size={13} />Settings</TabsTrigger>
-            <TabsTrigger value="result" className="text-xs flex items-center gap-1.5"><Trophy size={13} />Result</TabsTrigger>
+            <TabsTrigger value="photo" className="text-xs flex items-center gap-1.5"><Camera size={15} /><span className="hidden sm:inline">Photo</span></TabsTrigger>
+            <TabsTrigger value="tiles" className="text-xs flex items-center gap-1.5"><LayoutGrid size={15} /><span className="hidden sm:inline">Tiles</span></TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs flex items-center gap-1.5"><SlidersHorizontal size={15} /><span className="hidden sm:inline">Settings</span></TabsTrigger>
+            <TabsTrigger value="result" className="text-xs flex items-center gap-1.5"><Trophy size={15} /><span className="hidden sm:inline">Result</span></TabsTrigger>
           </TabsList>
 
           {/* Photo tab */}
           <TabsContent value="photo" className="mt-3">
-            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4 space-y-3">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-3 sm:p-4 space-y-3">
               <h2 className="font-semibold font-serif text-[#21201C] text-sm">Photo Input</h2>
               <p className="text-xs text-[#8A7A63]">
                 Take or upload a photo of your hand, then enter tiles manually below.
@@ -260,13 +260,13 @@ export default function Home() {
 
           {/* Tiles tab */}
           <TabsContent value="tiles" className="mt-3 space-y-3">
-            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4">
-              <div className="flex items-center justify-between mb-3">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-2.5">
                 <div>
                   <h2 className="font-semibold font-serif text-[#21201C] text-sm">Your Hand</h2>
                   <p className="text-xs text-[#8A7A63]">Select 14 tiles (flowers are extra)</p>
                 </div>
-                {nonFlowerTiles.length === 14 && (
+                {nonFlowerTiles.length >= 14 && nonFlowerTiles.length <= 18 && (
                   <span className="text-xs text-[#179e4b] font-medium">✓ Complete</span>
                 )}
               </div>
@@ -278,14 +278,14 @@ export default function Home() {
               />
             </div>
 
-            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4">
-              <div className="flex items-center justify-between mb-3">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-2.5">
                 <div>
                   <h2 className="font-semibold font-serif text-[#21201C] text-sm">Winning Tile</h2>
                   <p className="text-xs text-[#8A7A63]">Which tile completed your hand?</p>
                 </div>
                 {winningTile && (
-                  <span className="text-xs bg-[#1a449a]/10 text-[#1a449a] border border-[#1a449a]/30 px-2 py-1 rounded-full font-medium">
+                  <span className="text-xs bg-[#1a449a]/10 text-[#1a449a] border border-[#1a449a]/30 px-2 py-0.5 rounded-full font-medium">
                     Set ✓
                   </span>
                 )}
@@ -315,7 +315,7 @@ export default function Home() {
 
           {/* Settings tab */}
           <TabsContent value="settings" className="mt-3 space-y-3">
-            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-3 sm:p-4">
               <h2 className="font-semibold font-serif text-[#21201C] text-sm mb-4">Hand Settings</h2>
               <HandSettings values={settings} onChange={updateSettings} />
             </div>

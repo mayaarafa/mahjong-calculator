@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Tile, Suit, NumberValue, WindValue, DragonValue, FlowerValue, makeTile, tileKey, tileName } from '@/lib/mahjong/tiles'
 import { TileSvg } from '@/components/MahjongTileSvg'
 import { cn } from '@/lib/utils'
@@ -43,7 +43,7 @@ function TileButton({ tile, onClick, count = 0, maxAllowed = 4 }: TileButtonProp
       title={tileName(tile)}
       aria-label={`${tileName(tile)}${count > 0 ? ` (${count} selected)` : ''}`}
     >
-      <TileSvg tile={tile} size={62} />
+      <TileSvg tile={tile} size={54} />
       {count > 0 && !disabled && (
         <span className="absolute -top-2 -right-2 bg-[#21201C] text-[#F6F1E6] rounded-full w-4 h-4 text-[10px] flex items-center justify-center font-bold leading-none z-10">
           {count}
@@ -68,8 +68,8 @@ function SelectedTileChip({ tile, onRemove }: SelectedTileProps) {
       title={`Remove ${tileName(tile)}`}
       aria-label={`Remove ${tileName(tile)}`}
     >
-      <TileSvg tile={tile} size={44} />
-      <span className="absolute -top-0.5 -right-0.5 bg-[#21201C] text-[#F6F1E6] rounded-full w-3.5 h-3.5 text-[9px] flex items-center justify-center font-bold leading-none">
+      <TileSvg tile={tile} size={38} />
+      <span className="absolute -top-0.5 -right-0.5 bg-[#21201C] text-[#F6F1E6] rounded-full w-3 h-3 text-[8px] flex items-center justify-center font-bold leading-none">
         ×
       </span>
     </button>
@@ -98,6 +98,12 @@ export function TilePicker({
   singleSelect = false,
 }: TilePickerProps) {
   const [activeTab, setActiveTab] = useState<Suit>('bamboo')
+  const [expanded, setExpanded] = useState(selectedTiles.length === 0)
+
+  // Re-open picker when tile is cleared externally (e.g. Reset)
+  useEffect(() => {
+    if (singleSelect && selectedTiles.length === 0) setExpanded(true)
+  }, [singleSelect, selectedTiles.length])
 
   const countMap = new Map<string, number>()
   for (const t of selectedTiles) {
@@ -109,6 +115,7 @@ export function TilePicker({
     const newTile = makeTile(template.suit, template.value)
     if (singleSelect) {
       onChange([newTile])
+      setExpanded(false)
       return
     }
     const nonFlowerCount = selectedTiles.filter((t) => t.suit !== 'flowers').length
@@ -138,15 +145,31 @@ export function TilePicker({
     ? ['bamboo', 'circles', 'characters', 'winds', 'dragons', 'flowers']
     : ['bamboo', 'circles', 'characters', 'winds', 'dragons']
 
+  // Compact view for single-select when a tile is already chosen
+  if (singleSelect && selectedTiles.length > 0 && !expanded) {
+    return (
+      <div className="flex items-center gap-3 py-0.5">
+        <TileSvg tile={selectedTiles[0]} size={44} />
+        <span className="text-sm font-medium text-[#21201C]">{tileName(selectedTiles[0])}</span>
+        <button
+          onClick={() => setExpanded(true)}
+          className="ml-auto text-xs border border-[#D9CBA9] rounded-md px-2.5 py-1 text-[#8A7A63] hover:border-[#1a449a] hover:text-[#1a449a] transition-colors"
+        >
+          Change
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {label && <p className="text-sm font-medium text-[#21201C]">{label}</p>}
 
       {/* Selected tiles display */}
       {!singleSelect && (
-        <div className="min-h-[44px] bg-[#F6F1E6] rounded-lg p-2 flex flex-wrap gap-1.5 border border-[#D9CBA9]">
+        <div className="min-h-[38px] bg-[#F6F1E6] rounded-lg p-1.5 flex flex-wrap gap-1 border border-[#D9CBA9]">
           {selectedTiles.length === 0 ? (
-            <span className="text-[#8A7A63] text-xs self-center">No tiles selected</span>
+            <span className="text-[#8A7A63] text-xs self-center px-1">No tiles selected</span>
           ) : (
             selectedTiles.map((tile, i) => (
               <SelectedTileChip key={tile.id + i} tile={tile} onRemove={removeLast} />
@@ -171,8 +194,8 @@ export function TilePicker({
         ))}
       </div>
 
-      {/* Tile grid — horizontally scrollable so tiles can be large */}
-      <div className="flex gap-3 overflow-x-auto pb-3 pt-3 px-1">
+      {/* Tile grid — wraps on mobile, single row on wider screens */}
+      <div className="flex flex-wrap gap-2 py-2 px-1">
         {(suitTiles[activeTab] ?? []).map((tile) => {
           const k = tileKey(tile)
           const count = countMap.get(k) ?? 0
