@@ -1,30 +1,76 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
+import { Camera, Upload, X, Loader2, AlertTriangle, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+
+export interface TileSpec {
+  suit: string
+  value: number | string
+}
 
 interface PhotoInputProps {
   onImageCaptured: (dataUrl: string) => void
+  onTilesRecognized: (tiles: TileSpec[], winningTile: TileSpec | null) => void
+  preview?: string | null
+  onClearPreview?: () => void
 }
 
-export function PhotoInput({ onImageCaptured }: PhotoInputProps) {
+export function PhotoInput({
+  onImageCaptured,
+  onTilesRecognized,
+  preview = null,
+  onClearPreview,
+}: PhotoInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [preview, setPreview] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [status, setStatus] = useState<'idle' | 'recognizing' | 'done' | 'error'>('idle')
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [tileCount, setTileCount] = useState<number>(0)
+
+  const recognize = useCallback(
+    async (dataUrl: string) => {
+      setStatus('recognizing')
+      setErrorMsg(null)
+      try {
+        const res = await fetch('/api/recognize-tiles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData: dataUrl }),
+        })
+        const data = await res.json()
+        if (data.error) {
+          setStatus('error')
+          setErrorMsg(data.error)
+        } else {
+          const tiles: TileSpec[] = data.tiles ?? []
+          const winning: TileSpec | null = data.winningTile ?? null
+          setTileCount(tiles.length)
+          setStatus('done')
+          onTilesRecognized(tiles, winning)
+        }
+      } catch {
+        setStatus('error')
+        setErrorMsg('Could not reach the recognition service')
+      }
+    },
+    [onTilesRecognized]
+  )
 
   const handleFile = useCallback(
     (file: File) => {
       if (!file.type.startsWith('image/')) return
+      setStatus('idle')
+      setErrorMsg(null)
       const reader = new FileReader()
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string
-        setPreview(dataUrl)
         onImageCaptured(dataUrl)
+        recognize(dataUrl)
       }
       reader.readAsDataURL(file)
     },
-    [onImageCaptured]
+    [onImageCaptured, recognize]
   )
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +109,9 @@ export function PhotoInput({ onImageCaptured }: PhotoInputProps) {
   }
 
   const clearImage = () => {
-    setPreview(null)
+    onClearPreview?.()
+    setStatus('idle')
+    setErrorMsg(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -78,37 +126,56 @@ export function PhotoInput({ onImageCaptured }: PhotoInputProps) {
       />
 
       {preview ? (
-        <div className="relative rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-          <img src={preview} alt="Captured hand" className="w-full object-contain max-h-64" />
-          <button
-            onClick={clearImage}
-            className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-black/80 transition-colors"
-            aria-label="Remove image"
-          >
-            ×
-          </button>
-          <div className="absolute bottom-2 left-2">
-            <span className="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-              Manual tile entry required below
-            </span>
+        <div className="space-y-2">
+          <div className="relative rounded-xl overflow-hidden border border-[#D9CBA9]">
+            <img src={preview} alt="Captured hand" className="w-full object-contain max-h-64" />
+            <button
+              onClick={clearImage}
+              className="absolute top-2 right-2 bg-[#21201C]/60 text-[#F6F1E6] rounded-full w-7 h-7 flex items-center justify-center hover:bg-[#21201C]/80 transition-colors"
+              aria-label="Remove image"
+            >
+              <X size={14} />
+            </button>
           </div>
+
+          {/* Recognition status */}
+          {status === 'recognizing' && (
+            <div className="flex items-center gap-2 text-sm text-[#8A7A63] px-1">
+              <Loader2 size={14} className="animate-spin text-[#179e4b]" />
+              <span>Recognizing tiles…</span>
+            </div>
+          )}
+          {status === 'done' && (
+            <div className="flex items-center gap-2 text-sm text-[#179e4b] px-1">
+              <Check size={14} />
+              <span>{tileCount} tile{tileCount !== 1 ? 's' : ''} detected — check the Tiles tab</span>
+            </div>
+          )}
+          {status === 'error' && (
+            <div className="rounded-lg border border-[#e51e28]/30 bg-[#e51e28]/5 px-3 py-2 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-[#e51e28] mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-[#21201C]">
+                <p className="font-medium text-[#e51e28]">Recognition failed</p>
+                <p className="text-[#8A7A63] mt-0.5">{errorMsg} — please enter tiles manually in the Tiles tab.</p>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
-          className={`
-            border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-3 transition-colors
-            ${isDragging ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-slate-50'}
-          `}
+          className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-3 transition-colors ${
+            isDragging ? 'border-[#179e4b] bg-[#179e4b]/5' : 'border-[#D9CBA9] bg-[#F6F1E6]'
+          }`}
         >
-          <div className="text-4xl">🀄</div>
-          <p className="text-sm text-slate-500 text-center">
+          <Camera size={32} className="text-[#8A7A63] opacity-50" />
+          <p className="text-sm text-[#21201C] text-center">
             Take a photo or upload an image of your hand
           </p>
-          <p className="text-xs text-slate-400 text-center">
-            Drag & drop an image here, or use the buttons below
+          <p className="text-xs text-[#8A7A63] text-center">
+            Tiles will be automatically detected
           </p>
         </div>
       )}
@@ -117,26 +184,20 @@ export function PhotoInput({ onImageCaptured }: PhotoInputProps) {
         <Button
           variant="outline"
           onClick={openCamera}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 border-[#D9CBA9] text-[#21201C] hover:border-[#179e4b] hover:text-[#179e4b] bg-transparent"
         >
-          <span>📷</span>
-          <span>Camera</span>
+          <Camera size={15} />
+          Camera
         </Button>
         <Button
           variant="outline"
           onClick={openFilePicker}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 border-[#D9CBA9] text-[#21201C] hover:border-[#179e4b] hover:text-[#179e4b] bg-transparent"
         >
-          <span>📁</span>
-          <span>Upload</span>
+          <Upload size={15} />
+          Upload
         </Button>
       </div>
-
-      {preview && (
-        <p className="text-xs text-slate-400 text-center">
-          Automatic tile recognition is not yet available. Please enter your tiles manually below.
-        </p>
-      )}
     </div>
   )
 }

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { PhotoInput } from '@/components/PhotoInput'
+import { Camera, Calculator, SlidersHorizontal, Trophy, AlertTriangle, Check, LayoutGrid } from 'lucide-react'
+import { PhotoInput, TileSpec } from '@/components/PhotoInput'
 import { TilePicker } from '@/components/TilePicker'
 import { HandSettings, HandSettingsValues, DEFAULT_SETTINGS } from '@/components/HandSettings'
 import { ScoreResult } from '@/components/ScoreResult'
@@ -95,9 +96,10 @@ const SAMPLE_HANDS: SampleHand[] = [
       t('characters',2),t('characters',3),t('characters',4),
       t('bamboo',6),t('bamboo',7),t('bamboo',8),
       t('circles',9),t('circles',9),
+      t('flowers',1),t('flowers',2),t('flowers',3),
     ],
     winningTile: t('circles',9),
-    settings: { selfDraw: true, waitType: 'pair', flowerCount: 3 },
+    settings: { selfDraw: true, waitType: 'pair' },
   },
   {
     name: 'Below Minimum',
@@ -121,15 +123,20 @@ export default function Home() {
   const [settings, setSettings] = useState<HandSettingsValues>(DEFAULT_SETTINGS)
   const [activeTab, setActiveTab] = useState('tiles')
   const [hasScored, setHasScored] = useState(false)
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+
+  const updateTiles = (t: Tile[]) => { setTiles(t); setHasScored(false) }
+  const updateWinningTile = (ts: Tile[]) => { setWinningTile(ts[0] ?? null); setHasScored(false) }
+  const updateSettings = (s: HandSettingsValues) => { setSettings(s); setHasScored(false) }
 
   const nonFlowerTiles = tiles.filter((t) => t.suit !== 'flowers')
   const flowerTiles = tiles.filter((t) => t.suit === 'flowers')
 
   const result = useMemo(() => {
-    if (!hasScored || nonFlowerTiles.length !== 14 || !winningTile) return null
+    if (!hasScored || nonFlowerTiles.length < 14 || nonFlowerTiles.length > 18 || !winningTile) return null
     return scoreHand({
       tiles: nonFlowerTiles,
-      flowers: settings.flowerCount + flowerTiles.length,
+      flowers: flowerTiles.length,
       winningTile,
       declaredMelds: [],
       selfDraw: settings.selfDraw,
@@ -155,6 +162,7 @@ export default function Home() {
     setSettings(DEFAULT_SETTINGS)
     setHasScored(false)
     setActiveTab('tiles')
+    setCapturedPhoto(null)
   }
 
   const loadSample = (sample: SampleHand) => {
@@ -165,49 +173,53 @@ export default function Home() {
     setActiveTab('tiles')
   }
 
-  const canScore = nonFlowerTiles.length === 14 && winningTile !== null
+  const canScore = nonFlowerTiles.length >= 14 && nonFlowerTiles.length <= 18 && winningTile !== null
 
   const tileCountLabel = () => {
     if (nonFlowerTiles.length === 0) return 'No tiles'
     if (nonFlowerTiles.length < 14) return `${nonFlowerTiles.length}/14 tiles`
-    return '14 tiles ✓'
+    if (nonFlowerTiles.length > 18) return `${nonFlowerTiles.length} tiles — too many`
+    return `${nonFlowerTiles.length} tiles selected`
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#F6F1E6] shoji-grid">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-black text-slate-900 leading-tight">🀄 Mahjong Scorer</h1>
-            <p className="text-xs text-slate-400">Chinese Official Rules</p>
+      <header className="bg-[#F6F1E6] border-b border-[#D9CBA9] sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-[2px] bg-[#179e4b] inline-block flex-shrink-0" />
+            <div>
+              <h1 className="text-lg font-black font-serif text-[#21201C] leading-tight">Mahjong Scorer</h1>
+              <p className="text-xs text-[#8A7A63]">Chinese Official Rules</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className={cn(
               'text-xs px-2 py-1 rounded-full font-medium',
               nonFlowerTiles.length === 14
-                ? 'bg-green-100 text-green-700'
-                : 'bg-slate-100 text-slate-500'
+                ? 'bg-[#179e4b]/10 text-[#179e4b]'
+                : 'bg-[#D9CBA9]/30 text-[#8A7A63]'
             )}>
               {tileCountLabel()}
             </span>
-            <Button variant="outline" size="sm" onClick={handleReset} className="text-xs">
+            <Button variant="outline" size="sm" onClick={handleReset} className="text-xs border-[#e51e28]/40 text-[#e51e28] hover:border-[#e51e28] hover:bg-[#e51e28]/5 bg-transparent">
               Reset
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
+      <main className="max-w-2xl mx-auto px-6 py-6 space-y-5">
         {/* Sample hands strip */}
         <div>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-2">Try a sample hand</p>
+          <p className="text-xs text-[#8A7A63] font-medium uppercase tracking-wide mb-2">Try a sample hand</p>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {SAMPLE_HANDS.map((s) => (
               <button
                 key={s.name}
                 onClick={() => loadSample(s)}
-                className="flex-shrink-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 transition-colors whitespace-nowrap"
+                className="flex-shrink-0 bg-[#EFE7D8] border border-[#D9CBA9] rounded-lg px-3 py-2 text-xs font-medium text-[#21201C] hover:border-[#1a449a] hover:bg-[#F6F1E6] transition-colors whitespace-nowrap"
               >
                 {s.name}
               </button>
@@ -218,58 +230,69 @@ export default function Home() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full grid grid-cols-4">
-            <TabsTrigger value="photo" className="text-xs">📷 Photo</TabsTrigger>
-            <TabsTrigger value="tiles" className="text-xs">🀄 Tiles</TabsTrigger>
-            <TabsTrigger value="settings" className="text-xs">⚙️ Settings</TabsTrigger>
-            <TabsTrigger value="result" className="text-xs">🏆 Result</TabsTrigger>
+            <TabsTrigger value="photo" className="text-xs flex items-center gap-1.5"><Camera size={13} />Photo</TabsTrigger>
+            <TabsTrigger value="tiles" className="text-xs flex items-center gap-1.5"><LayoutGrid size={13} />Tiles</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs flex items-center gap-1.5"><SlidersHorizontal size={13} />Settings</TabsTrigger>
+            <TabsTrigger value="result" className="text-xs flex items-center gap-1.5"><Trophy size={13} />Result</TabsTrigger>
           </TabsList>
 
           {/* Photo tab */}
           <TabsContent value="photo" className="mt-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
-              <h2 className="font-semibold text-slate-800 text-sm">Photo Input</h2>
-              <p className="text-xs text-slate-400">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4 space-y-3">
+              <h2 className="font-semibold font-serif text-[#21201C] text-sm">Photo Input</h2>
+              <p className="text-xs text-[#8A7A63]">
                 Take or upload a photo of your hand, then enter tiles manually below.
               </p>
-              <PhotoInput onImageCaptured={() => setActiveTab('tiles')} />
+              <PhotoInput
+                onImageCaptured={(url) => setCapturedPhoto(url)}
+                onTilesRecognized={(tilespecs: TileSpec[], winning: TileSpec | null) => {
+                  const parsed = tilespecs.map((s) => makeTile(s.suit as never, s.value as never))
+                  setTiles(parsed)
+                  setWinningTile(winning ? makeTile(winning.suit as never, winning.value as never) : null)
+                  setHasScored(false)
+                  setActiveTab('tiles')
+                }}
+                preview={capturedPhoto}
+                onClearPreview={() => setCapturedPhoto(null)}
+              />
             </div>
           </TabsContent>
 
           {/* Tiles tab */}
           <TabsContent value="tiles" className="mt-3 space-y-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h2 className="font-semibold text-slate-800 text-sm">Your Hand</h2>
-                  <p className="text-xs text-slate-400">Select 14 tiles (flowers are extra)</p>
+                  <h2 className="font-semibold font-serif text-[#21201C] text-sm">Your Hand</h2>
+                  <p className="text-xs text-[#8A7A63]">Select 14 tiles (flowers are extra)</p>
                 </div>
                 {nonFlowerTiles.length === 14 && (
-                  <span className="text-xs text-green-600 font-medium">✓ Complete</span>
+                  <span className="text-xs text-[#179e4b] font-medium">✓ Complete</span>
                 )}
               </div>
               <TilePicker
                 selectedTiles={tiles}
-                onChange={setTiles}
-                maxTiles={22}
+                onChange={updateTiles}
+                maxTiles={18}
                 showFlowers
               />
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h2 className="font-semibold text-slate-800 text-sm">Winning Tile</h2>
-                  <p className="text-xs text-slate-400">Which tile completed your hand?</p>
+                  <h2 className="font-semibold font-serif text-[#21201C] text-sm">Winning Tile</h2>
+                  <p className="text-xs text-[#8A7A63]">Which tile completed your hand?</p>
                 </div>
                 {winningTile && (
-                  <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 rounded-full font-medium">
+                  <span className="text-xs bg-[#1a449a]/10 text-[#1a449a] border border-[#1a449a]/30 px-2 py-1 rounded-full font-medium">
                     Set ✓
                   </span>
                 )}
               </div>
               <TilePicker
                 selectedTiles={winningTile ? [winningTile] : []}
-                onChange={(ts) => setWinningTile(ts[0] ?? null)}
+                onChange={updateWinningTile}
                 singleSelect
                 maxTiles={1}
               />
@@ -278,22 +301,33 @@ export default function Home() {
             <Button
               className="w-full h-12 text-base font-bold"
               disabled={!canScore}
-              onClick={handleScore}
+              onClick={() => setActiveTab('settings')}
             >
               {canScore
-                ? '🧮 Calculate Score'
+                ? <span className="flex items-center gap-2"><SlidersHorizontal size={16} />Next: Settings</span>
                 : nonFlowerTiles.length < 14
                   ? `Need ${14 - nonFlowerTiles.length} more tile${14 - nonFlowerTiles.length === 1 ? '' : 's'}`
-                  : 'Select winning tile'}
+                  : nonFlowerTiles.length > 18
+                    ? `Too many tiles (max 18 with 4 kongs)`
+                    : 'Select winning tile'}
             </Button>
           </TabsContent>
 
           {/* Settings tab */}
-          <TabsContent value="settings" className="mt-3">
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <h2 className="font-semibold text-slate-800 text-sm mb-4">Hand Settings</h2>
-              <HandSettings values={settings} onChange={setSettings} />
+          <TabsContent value="settings" className="mt-3 space-y-3">
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-4">
+              <h2 className="font-semibold font-serif text-[#21201C] text-sm mb-4">Hand Settings</h2>
+              <HandSettings values={settings} onChange={updateSettings} />
             </div>
+            <Button
+              className="w-full h-12 text-base font-bold"
+              disabled={!canScore}
+              onClick={handleScore}
+            >
+              {canScore
+                ? <span className="flex items-center gap-2"><Calculator size={16} />Calculate Score</span>
+                : <span>Select tiles first</span>}
+            </Button>
           </TabsContent>
 
           {/* Result tab */}
@@ -301,13 +335,13 @@ export default function Home() {
             {result ? (
               <>
                 <ScoreResult result={result} basePoints={settings.basePoints} />
-                <Button variant="outline" className="w-full" onClick={() => setActiveTab('tiles')}>
+                <Button variant="outline" className="w-full border-[#D9CBA9] text-[#e51e28] hover:border-[#e51e28] hover:bg-[#e51e28]/5 bg-transparent" onClick={() => setActiveTab('tiles')}>
                   ← Edit Hand
                 </Button>
               </>
             ) : (
-              <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">
-                <p className="text-4xl mb-3">🀄</p>
+              <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-8 text-center text-[#8A7A63]">
+                <Trophy size={32} className="mx-auto mb-3 opacity-30" />
                 <p className="text-sm">Enter your tiles then press "Calculate Score"</p>
                 <Button className="mt-4" onClick={() => setActiveTab('tiles')}>
                   Enter Tiles →
@@ -324,14 +358,14 @@ export default function Home() {
             className={cn(
               'w-full rounded-xl border-2 p-3 flex items-center justify-between',
               result.meetsMinimum
-                ? 'border-green-300 bg-green-50 text-green-800'
-                : 'border-amber-300 bg-amber-50 text-amber-800'
+                ? 'border-[#179e4b] bg-[#179e4b]/10 text-[#179e4b]'
+                : 'border-[#e51e28] bg-[#e51e28]/10 text-[#e51e28]'
             )}
           >
-            <span className="text-sm font-semibold">
+            <span className="text-sm font-semibold flex items-center gap-2">
               {result.meetsMinimum
-                ? `✅ ${result.fanPoints} Fan (${result.totalPoints} total)`
-                : `⚠️ ${result.fanPoints}/8 Fan — below minimum`}
+                ? <><Check size={14} />{result.fanPoints} Fan ({result.totalPoints} total)</>
+                : <><AlertTriangle size={14} />{result.fanPoints}/8 Fan — below minimum</>}
             </span>
             <span className="text-xs opacity-70">View →</span>
           </button>

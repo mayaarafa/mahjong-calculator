@@ -1,44 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import { Tile, Suit, NumberValue, WindValue, DragonValue, FlowerValue, makeTile, tileKey } from '@/lib/mahjong/tiles'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Tile, Suit, NumberValue, WindValue, DragonValue, FlowerValue, makeTile, tileKey, tileName } from '@/lib/mahjong/tiles'
+import { TileSvg } from '@/components/MahjongTileSvg'
 import { cn } from '@/lib/utils'
 
-// ── Tile display ───────────────────────────────────────────────────────────────
+// ── Suit tab styles ───────────────────────────────────────────────────────────
 
-const SUIT_COLORS: Record<string, string> = {
-  bamboo: 'text-green-700 bg-green-50 border-green-300',
-  circles: 'text-blue-700 bg-blue-50 border-blue-300',
-  characters: 'text-red-700 bg-red-50 border-red-300',
-  winds: 'text-purple-700 bg-purple-50 border-purple-300',
-  dragons: 'text-yellow-700 bg-yellow-50 border-yellow-300',
-  flowers: 'text-pink-700 bg-pink-50 border-pink-300',
-}
+const SUIT_TAB_ACTIVE = 'bg-[#1a449a] text-[#F6F1E6] border-[#1a449a]'
+const SUIT_TAB_INACTIVE = 'text-[#8A7A63] bg-[#F6F1E6] border-[#D9CBA9] hover:border-[#1a449a] hover:text-[#1a449a]'
 
 const SUIT_LABELS: Record<string, string> = {
-  bamboo: '🎋 Bamboo',
-  circles: '⭕ Circles',
-  characters: '字 Characters',
-  winds: '🧭 Winds',
-  dragons: '🐉 Dragons',
-  flowers: '🌸 Flowers/Seasons',
+  bamboo:     'Bamboo',
+  circles:    'Circles',
+  characters: 'Characters',
+  winds:      'Winds',
+  dragons:    'Dragons',
+  flowers:    'Flowers',
 }
 
-function tileDisplayValue(tile: Tile): string {
-  if (tile.suit === 'flowers') {
-    const labels = ['Plum 1', 'Orchid 2', 'Mum 3', 'Bam 4', 'Spr 1', 'Sum 2', 'Aut 3', 'Wnt 4']
-    return labels[(tile.value as number) - 1]
-  }
-  if (tile.suit === 'winds') {
-    return { east: 'E 東', south: 'S 南', west: 'W 西', north: 'N 北' }[tile.value as WindValue]
-  }
-  if (tile.suit === 'dragons') {
-    return { red: 'Zh 中', green: 'Fa 發', white: 'Bk 白' }[tile.value as DragonValue]
-  }
-  return String(tile.value)
-}
+// ── Tile button ───────────────────────────────────────────────────────────────
 
 interface TileButtonProps {
   tile: Tile
@@ -48,23 +29,23 @@ interface TileButtonProps {
 }
 
 function TileButton({ tile, onClick, count = 0, maxAllowed = 4 }: TileButtonProps) {
-  const colorClass = SUIT_COLORS[tile.suit] ?? ''
   const disabled = count >= maxAllowed
   return (
     <button
       onClick={() => !disabled && onClick(tile)}
       disabled={disabled}
       className={cn(
-        'relative border rounded-lg px-2 py-1.5 text-xs font-medium transition-all min-w-[44px]',
-        'flex flex-col items-center gap-0.5',
-        colorClass,
-        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:scale-105 hover:shadow-md active:scale-95 cursor-pointer',
-        count > 0 && !disabled && 'ring-2 ring-offset-1 ring-current'
+        'relative transition-all',
+        disabled
+          ? 'cursor-not-allowed opacity-40'
+          : 'cursor-pointer active:scale-95 hover:drop-shadow-md',
       )}
+      title={tileName(tile)}
+      aria-label={`${tileName(tile)}${count > 0 ? ` (${count} selected)` : ''}`}
     >
-      <span className="font-bold text-sm leading-tight">{tileDisplayValue(tile)}</span>
-      {count > 0 && (
-        <span className="absolute -top-1.5 -right-1.5 bg-slate-700 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
+      <TileSvg tile={tile} size={62} />
+      {count > 0 && !disabled && (
+        <span className="absolute -top-2 -right-2 bg-[#21201C] text-[#F6F1E6] rounded-full w-4 h-4 text-[10px] flex items-center justify-center font-bold leading-none z-10">
           {count}
         </span>
       )}
@@ -72,7 +53,7 @@ function TileButton({ tile, onClick, count = 0, maxAllowed = 4 }: TileButtonProp
   )
 }
 
-// ── Selected tile list ─────────────────────────────────────────────────────────
+// ── Selected tile chip ────────────────────────────────────────────────────────
 
 interface SelectedTileProps {
   tile: Tile
@@ -80,27 +61,22 @@ interface SelectedTileProps {
 }
 
 function SelectedTileChip({ tile, onRemove }: SelectedTileProps) {
-  const colorClass = SUIT_COLORS[tile.suit] ?? ''
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 border rounded px-1.5 py-0.5 text-xs font-medium',
-        colorClass
-      )}
+    <button
+      onClick={() => onRemove(tile)}
+      className="relative hover:scale-105 active:scale-95 transition-transform"
+      title={`Remove ${tileName(tile)}`}
+      aria-label={`Remove ${tileName(tile)}`}
     >
-      {tileDisplayValue(tile)}
-      <button
-        onClick={() => onRemove(tile)}
-        className="ml-0.5 hover:bg-black/10 rounded-full w-3.5 h-3.5 flex items-center justify-center text-[10px] leading-none"
-        aria-label="Remove tile"
-      >
+      <TileSvg tile={tile} size={44} />
+      <span className="absolute -top-0.5 -right-0.5 bg-[#21201C] text-[#F6F1E6] rounded-full w-3.5 h-3.5 text-[9px] flex items-center justify-center font-bold leading-none">
         ×
-      </button>
-    </span>
+      </span>
+    </button>
   )
 }
 
-// ── Props ──────────────────────────────────────────────────────────────────────
+// ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface TilePickerProps {
   selectedTiles: Tile[]
@@ -108,10 +84,10 @@ export interface TilePickerProps {
   maxTiles?: number
   label?: string
   showFlowers?: boolean
-  singleSelect?: boolean       // for winning tile picker
+  singleSelect?: boolean
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function TilePicker({
   selectedTiles,
@@ -123,7 +99,6 @@ export function TilePicker({
 }: TilePickerProps) {
   const [activeTab, setActiveTab] = useState<Suit>('bamboo')
 
-  // Count occurrences of each tile key
   const countMap = new Map<string, number>()
   for (const t of selectedTiles) {
     const k = tileKey(t)
@@ -131,13 +106,14 @@ export function TilePicker({
   }
 
   function addTile(template: Tile) {
-    if (selectedTiles.length >= maxTiles) return
     const newTile = makeTile(template.suit, template.value)
     if (singleSelect) {
       onChange([newTile])
-    } else {
-      onChange([...selectedTiles, newTile])
+      return
     }
+    const nonFlowerCount = selectedTiles.filter((t) => t.suit !== 'flowers').length
+    if (template.suit !== 'flowers' && nonFlowerCount >= maxTiles) return
+    onChange([...selectedTiles, newTile])
   }
 
   function removeLast(template: Tile) {
@@ -149,18 +125,13 @@ export function TilePicker({
     onChange(next)
   }
 
-  function clearAll() {
-    onChange([])
-  }
-
-  // Build tile options per suit
   const suitTiles: Record<string, Tile[]> = {
-    bamboo: Array.from({ length: 9 }, (_, i) => makeTile('bamboo', (i + 1) as NumberValue)),
-    circles: Array.from({ length: 9 }, (_, i) => makeTile('circles', (i + 1) as NumberValue)),
+    bamboo:     Array.from({ length: 9 }, (_, i) => makeTile('bamboo', (i + 1) as NumberValue)),
+    circles:    Array.from({ length: 9 }, (_, i) => makeTile('circles', (i + 1) as NumberValue)),
     characters: Array.from({ length: 9 }, (_, i) => makeTile('characters', (i + 1) as NumberValue)),
-    winds: (['east', 'south', 'west', 'north'] as WindValue[]).map((v) => makeTile('winds', v)),
-    dragons: (['red', 'green', 'white'] as DragonValue[]).map((v) => makeTile('dragons', v)),
-    flowers: Array.from({ length: 8 }, (_, i) => makeTile('flowers', (i + 1) as FlowerValue)),
+    winds:      (['east', 'south', 'west', 'north'] as WindValue[]).map((v) => makeTile('winds', v)),
+    dragons:    (['red', 'green', 'white'] as DragonValue[]).map((v) => makeTile('dragons', v)),
+    flowers:    Array.from({ length: 8 }, (_, i) => makeTile('flowers', (i + 1) as FlowerValue)),
   }
 
   const tabs: Suit[] = showFlowers
@@ -169,13 +140,13 @@ export function TilePicker({
 
   return (
     <div className="space-y-3">
-      {label && <p className="text-sm font-medium text-slate-700">{label}</p>}
+      {label && <p className="text-sm font-medium text-[#21201C]">{label}</p>}
 
-      {/* Selected tile display */}
+      {/* Selected tiles display */}
       {!singleSelect && (
-        <div className="min-h-[40px] bg-slate-50 rounded-lg p-2 flex flex-wrap gap-1 border border-slate-200">
+        <div className="min-h-[44px] bg-[#F6F1E6] rounded-lg p-2 flex flex-wrap gap-1.5 border border-[#D9CBA9]">
           {selectedTiles.length === 0 ? (
-            <span className="text-slate-400 text-xs self-center">No tiles selected</span>
+            <span className="text-[#8A7A63] text-xs self-center">No tiles selected</span>
           ) : (
             selectedTiles.map((tile, i) => (
               <SelectedTileChip key={tile.id + i} tile={tile} onRemove={removeLast} />
@@ -184,17 +155,15 @@ export function TilePicker({
         </div>
       )}
 
-      {/* Tab bar */}
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+      {/* Suit tab bar */}
+      <div className="flex gap-1 overflow-x-auto pb-1">
         {tabs.map((suit) => (
           <button
             key={suit}
             onClick={() => setActiveTab(suit)}
             className={cn(
               'px-2 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-colors border',
-              activeTab === suit
-                ? SUIT_COLORS[suit] + ' shadow-sm'
-                : 'text-slate-500 bg-white border-slate-200 hover:border-slate-300'
+              activeTab === suit ? SUIT_TAB_ACTIVE : SUIT_TAB_INACTIVE
             )}
           >
             {SUIT_LABELS[suit]}
@@ -202,8 +171,8 @@ export function TilePicker({
         ))}
       </div>
 
-      {/* Tile grid */}
-      <div className="flex flex-wrap gap-1.5">
+      {/* Tile grid — horizontally scrollable so tiles can be large */}
+      <div className="flex gap-3 overflow-x-auto pb-3 pt-3 px-1">
         {(suitTiles[activeTab] ?? []).map((tile) => {
           const k = tileKey(tile)
           const count = countMap.get(k) ?? 0
@@ -214,18 +183,22 @@ export function TilePicker({
               tile={tile}
               onClick={addTile}
               count={count}
-              maxAllowed={singleSelect ? 0 : maxAllowed}
+              maxAllowed={singleSelect ? 1 : maxAllowed}
             />
           )
         })}
       </div>
 
-      {/* Controls */}
+      {/* Count / clear */}
       {!singleSelect && (
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>{selectedTiles.length} / {maxTiles} tiles</span>
+        <div className="flex items-center justify-between text-xs text-[#8A7A63]">
+          <span>{selectedTiles.filter(t => t.suit !== 'flowers').length} / {maxTiles} tiles
+            {selectedTiles.filter(t => t.suit === 'flowers').length > 0 &&
+              ` + ${selectedTiles.filter(t => t.suit === 'flowers').length} flower${selectedTiles.filter(t => t.suit === 'flowers').length > 1 ? 's' : ''}`
+            }
+          </span>
           {selectedTiles.length > 0 && (
-            <button onClick={clearAll} className="text-red-500 hover:text-red-700 underline">
+            <button onClick={() => onChange([])} className="text-[#e51e28] hover:text-[#e51e28]/70 underline">
               Clear all
             </button>
           )}

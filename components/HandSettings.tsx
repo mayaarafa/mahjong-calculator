@@ -13,7 +13,6 @@ export interface HandSettingsValues {
   selfDraw: boolean
   seatWind: WindValue
   prevalentWind: WindValue
-  flowerCount: number
   waitType: WaitTypeFromRules
   isLastTile: boolean
   isRobbingKong: boolean
@@ -27,7 +26,6 @@ export const DEFAULT_SETTINGS: HandSettingsValues = {
   selfDraw: false,
   seatWind: 'east',
   prevalentWind: 'east',
-  flowerCount: 0,
   waitType: 'two-sided',
   isLastTile: false,
   isRobbingKong: false,
@@ -51,15 +49,15 @@ function SegmentedControl<T extends string>({
   options: { label: string; value: T }[]
 }) {
   return (
-    <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+    <div className="flex rounded-lg border border-[#D9CBA9] overflow-hidden">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={`flex-1 py-1.5 px-2 text-xs font-medium transition-colors ${
             value === opt.value
-              ? 'bg-slate-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-50'
+              ? 'bg-[#1a449a] text-[#F6F1E6]'
+              : 'bg-[#F6F1E6] text-[#8A7A63] hover:bg-[#EFE7D8]'
           }`}
         >
           {opt.label}
@@ -85,13 +83,13 @@ function Toggle({
       onClick={() => onChange(!checked)}
       className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
         checked
-          ? 'border-slate-800 bg-slate-50'
-          : 'border-slate-200 bg-white hover:border-slate-300'
+          ? 'border-[#1a449a] bg-[#1a449a]/5'
+          : 'border-[#D9CBA9] bg-[#F6F1E6] hover:border-[#1a449a]'
       }`}
     >
       <div
         className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-          checked ? 'bg-slate-800 border-slate-800' : 'border-slate-300'
+          checked ? 'bg-[#1a449a] border-[#1a449a]' : 'border-[#D9CBA9]'
         }`}
       >
         {checked && (
@@ -101,8 +99,8 @@ function Toggle({
         )}
       </div>
       <div>
-        <p className="text-sm font-medium text-slate-800">{label}</p>
-        {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
+        <p className="text-sm font-medium text-[#21201C]">{label}</p>
+        {description && <p className="text-xs text-[#8A7A63] mt-0.5">{description}</p>}
       </div>
     </button>
   )
@@ -116,12 +114,12 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
     <div className="space-y-5">
       {/* Base Points */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-semibold text-slate-800">Base Points</Label>
-        <p className="text-xs text-slate-500">Points paid by all players regardless of hand score</p>
+        <Label className="text-sm font-semibold text-[#21201C]">Base Points</Label>
+        <p className="text-xs text-[#8A7A63]">Points paid by all players regardless of hand score</p>
         <div className="flex items-center gap-2">
           <button
             onClick={() => set('basePoints', Math.max(1, values.basePoints - 1))}
-            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+            className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
           >
             −
           </button>
@@ -130,11 +128,11 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
             min={1}
             value={values.basePoints}
             onChange={(e) => set('basePoints', Math.max(1, parseInt(e.target.value) || 8))}
-            className="w-16 text-center border border-slate-200 rounded-lg py-1.5 text-sm font-semibold"
+            className="w-16 text-center border border-[#D9CBA9] rounded-lg py-1.5 text-sm font-semibold text-[#21201C] bg-[#F6F1E6]"
           />
           <button
             onClick={() => set('basePoints', values.basePoints + 1)}
-            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
+            className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
           >
             +
           </button>
@@ -145,13 +143,13 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
 
       {/* Win Type */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-semibold text-slate-800">Win Type</Label>
+        <Label className="text-sm font-semibold text-[#21201C]">Win Type</Label>
         <SegmentedControl
           value={values.selfDraw ? 'self-draw' : 'discard'}
           onChange={(v) => set('selfDraw', v === 'self-draw')}
           options={[
-            { label: '🃏 Discard', value: 'discard' },
-            { label: '🤲 Self-Draw', value: 'self-draw' },
+            { label: 'Discard', value: 'discard' },
+            { label: 'Self-Draw', value: 'self-draw' },
           ]}
         />
       </div>
@@ -161,7 +159,7 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
       {/* Winds */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <Label className="text-sm font-semibold text-slate-800">Seat Wind</Label>
+          <Label className="text-sm font-semibold text-[#21201C]">Seat Wind</Label>
           <SegmentedControl
             value={values.seatWind}
             onChange={(v) => set('seatWind', v as WindValue)}
@@ -174,7 +172,7 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-sm font-semibold text-slate-800">Prevalent Wind</Label>
+          <Label className="text-sm font-semibold text-[#21201C]">Prevalent Wind</Label>
           <SegmentedControl
             value={values.prevalentWind}
             onChange={(v) => set('prevalentWind', v as WindValue)}
@@ -192,7 +190,7 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
 
       {/* Wait type */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-semibold text-slate-800">Wait Type</Label>
+        <Label className="text-sm font-semibold text-[#21201C]">Wait Type</Label>
         <SegmentedControl
           value={values.waitType}
           onChange={(v) => set('waitType', v as WaitTypeFromRules)}
@@ -203,41 +201,16 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
             { label: '= Pair', value: 'pair' },
           ]}
         />
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-[#8A7A63]">
           Edge (1-2 or 8-9 wait) · Closed (inside wait) · Pair (waiting on pair)
         </p>
       </div>
 
       <Separator />
 
-      {/* Flowers */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold text-slate-800">Flower Tiles</Label>
-        <p className="text-xs text-slate-500">Each flower = 1 pt (does not count toward 8-pt minimum)</p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => set('flowerCount', Math.max(0, values.flowerCount - 1))}
-            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
-          >
-            −
-          </button>
-          <div className="w-16 text-center py-1.5 text-sm font-semibold text-slate-800">
-            {values.flowerCount} {values.flowerCount > 0 ? '🌸'.repeat(Math.min(values.flowerCount, 4)) : ''}
-          </div>
-          <button
-            onClick={() => set('flowerCount', Math.min(8, values.flowerCount + 1))}
-            className="w-8 h-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 font-bold"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      <Separator />
-
       {/* Special conditions */}
       <div className="space-y-2">
-        <Label className="text-sm font-semibold text-slate-800">Special Conditions</Label>
+        <Label className="text-sm font-semibold text-[#21201C]">Special Conditions</Label>
         <Toggle
           checked={values.isLastTile}
           onChange={(v) => set('isLastTile', v)}

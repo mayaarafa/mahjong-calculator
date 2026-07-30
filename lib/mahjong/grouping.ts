@@ -89,9 +89,9 @@ function backtrack(
   currentPair: Meld | null,
   results: HandDecomposition[]
 ) {
-  const totalNeeded = setsNeeded * 3 + (currentPair ? 0 : 2)
+  const minNeeded = setsNeeded * 3 + (currentPair ? 0 : 2)
+  const maxNeeded = setsNeeded * 4 + (currentPair ? 0 : 2)
   const remaining = countMapToArray(map)
-  const totalRemaining = remaining.reduce((acc) => acc + 1, remaining.length - remaining.length) + remaining.length
 
   if (remaining.length === 0) {
     if (setsNeeded === 0 && currentPair !== null) {
@@ -104,7 +104,7 @@ function backtrack(
     return
   }
 
-  if (remaining.length !== totalNeeded) return
+  if (remaining.length < minNeeded || remaining.length > maxNeeded) return
 
   // Find first tile in remaining
   const firstKey = [...map.keys()].find((k) => (map.get(k)?.count ?? 0) > 0)
