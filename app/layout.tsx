@@ -15,7 +15,7 @@ const shipporiMincho = Shippori_Mincho({
 });
 
 export const metadata: Metadata = {
-  title: "Mahjong Scorer",
+  title: "The Mahjong Calculator",
   description: "Chinese Official Rules hand scorer",
 };
 
