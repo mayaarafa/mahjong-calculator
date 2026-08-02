@@ -287,9 +287,9 @@ export default function Home() {
             <span className="w-2.5 h-2.5 rounded-[2px] bg-[#179e4b] inline-block flex-shrink-0" />
             <div>
               <h1 className="text-lg font-black font-serif text-[#21201C] leading-tight">
-                Mahjong Scorer
+                The Mahjong Calculator
               </h1>
-              <p className="text-xs text-[#8A7A63]">Chinese Official Rules</p>
+              <p className="text-xs text-[#8A7A63]">By Maya Arafa</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
