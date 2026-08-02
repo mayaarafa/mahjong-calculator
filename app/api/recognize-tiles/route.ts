@@ -1,23 +1,23 @@
-import Anthropic from '@anthropic-ai/sdk'
-import { NextRequest } from 'next/server'
+import Anthropic from "@anthropic-ai/sdk";
+import { NextRequest } from "next/server";
 
-const client = new Anthropic()
+const client = new Anthropic();
 
 // In-memory rate limiter: 10 requests per IP per minute
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
-const LIMIT = 10
-const WINDOW_MS = 60_000
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const LIMIT = 10;
+const WINDOW_MS = 60_000;
 
 function checkRateLimit(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(ip)
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + WINDOW_MS })
-    return true
+    rateLimitMap.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
   }
-  if (entry.count >= LIMIT) return false
-  entry.count++
-  return true
+  if (entry.count >= LIMIT) return false;
+  entry.count++;
+  return true;
 }
 
 const PROMPT = `You are an expert at reading mahjong tiles from photos. Follow these steps carefully.
@@ -71,7 +71,15 @@ STEP 3 — Check your count:
 STEP 4 — Identify the winning tile (optional):
 If one tile is slightly separated or pulled apart from the rest of the hand, it may be the declared winning tile. If so, include it both in "tiles" AND in "winningTile". Otherwise set "winningTile" to null.
 
-STEP 5 — Output:
+STEP 5 — List every tile out loud:
+Before writing JSON, write each tile from left to right on its own line in this format:
+  Tile 1: bamboo 3 (counted 3 stalks)
+  Tile 2: west wind (西 character)
+  Tile 3: circles 6 (2 columns of 3 dots)
+  ...
+For bamboo tiles explicitly state how many stalks you counted. For wind/dragon tiles state the Chinese character you see. For circles tiles state the dot arrangement. This forces careful counting before committing to output.
+
+STEP 6 — Output:
 Return ONLY valid JSON in exactly this format (no explanation, no markdown fences):
 {
   "tiles": [
@@ -88,93 +96,117 @@ Return ONLY valid JSON in exactly this format (no explanation, no markdown fence
 Valid suit values: "bamboo", "circles", "characters", "winds", "dragons", "flowers"
 Valid value types: 1–9 (integer) for bamboo/circles/characters/flowers; "east"/"south"/"west"/"north" for winds; "red"/"green"/"white" for dragons
 
-If the image is too unclear to read, return: { "error": "Cannot identify tiles from this image" }`
+If the image is too unclear to read, return: { "error": "Cannot identify tiles from this image" }`;
 
 interface TileSpec {
-  suit: string
-  value: number | string
+  suit: string;
+  value: number | string;
 }
 
 function tileKey(t: TileSpec): string {
-  return `${t.suit}:${t.value}`
+  return `${t.suit}:${t.value}`;
 }
 
 // Enforce max 4 of each non-flower tile, max 1 of each flower
 function sanitizeTiles(tiles: TileSpec[]): TileSpec[] {
-  const counts = new Map<string, number>()
-  const result: TileSpec[] = []
+  const counts = new Map<string, number>();
+  const result: TileSpec[] = [];
   for (const tile of tiles) {
-    const key = tileKey(tile)
-    const current = counts.get(key) ?? 0
-    const limit = tile.suit === 'flowers' ? 1 : 4
+    const key = tileKey(tile);
+    const current = counts.get(key) ?? 0;
+    const limit = tile.suit === "flowers" ? 1 : 4;
     if (current < limit) {
-      result.push(tile)
-      counts.set(key, current + 1)
+      result.push(tile);
+      counts.set(key, current + 1);
     }
   }
-  return result
+  return result;
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ?? 'unknown'
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
   if (!checkRateLimit(ip)) {
-    return Response.json({ error: 'Too many requests — please wait a minute and try again.' }, { status: 429 })
+    return Response.json(
+      { error: "Too many requests — please wait a minute and try again." },
+      { status: 429 },
+    );
   }
 
-  const { imageData } = await request.json()
+  const { imageData } = await request.json();
 
-  const match = imageData.match(/^data:([^;]+);base64,(.+)$/)
+  const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) {
-    return Response.json({ error: 'Invalid image format' }, { status: 400 })
+    return Response.json({ error: "Invalid image format" }, { status: 400 });
   }
 
-  const mediaType = match[1] as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
-  const base64Data = match[2]
+  const mediaType = match[1] as
+    | "image/jpeg"
+    | "image/png"
+    | "image/gif"
+    | "image/webp";
+  const base64Data = match[2];
 
   try {
     const message = await client.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 1024,
+      model: "claude-sonnet-5",
+      max_tokens: 2048,
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: [
             {
-              type: 'image',
-              source: { type: 'base64', media_type: mediaType, data: base64Data },
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: mediaType,
+                data: base64Data,
+              },
             },
-            { type: 'text', text: PROMPT },
+            { type: "text", text: PROMPT },
           ],
         },
       ],
-    })
+    });
 
-    const text = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
-    const cleaned = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+    const textBlock = message.content.find((b) => b.type === "text");
+    const text =
+      textBlock && "text" in textBlock ? String(textBlock.text).trim() : "";
+    const cleaned = text
+      .replace(/^```(?:json)?\n?/, "")
+      .replace(/\n?```$/, "")
+      .trim();
 
-    let parsed: { tiles?: TileSpec[]; winningTile?: TileSpec | null; error?: string }
+    let parsed: {
+      tiles?: TileSpec[];
+      winningTile?: TileSpec | null;
+      error?: string;
+    };
     try {
-      parsed = JSON.parse(cleaned)
+      parsed = JSON.parse(cleaned);
     } catch {
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/)
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0])
+        parsed = JSON.parse(jsonMatch[0]);
       } else {
-        return Response.json({ error: 'Unexpected response from vision model' }, { status: 500 })
+        return Response.json(
+          { error: "Unexpected response from vision model" },
+          { status: 500 },
+        );
       }
     }
 
-    if (parsed.error) return Response.json(parsed)
+    if (parsed.error) return Response.json(parsed);
 
     // Sanitize: cap each tile at its legal maximum
-    const sanitizedTiles = sanitizeTiles(parsed.tiles ?? [])
+    const sanitizedTiles = sanitizeTiles(parsed.tiles ?? []);
 
     return Response.json({
       tiles: sanitizedTiles,
       winningTile: parsed.winningTile ?? null,
-    })
+    });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error'
-    return Response.json({ error: msg }, { status: 500 })
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return Response.json({ error: msg }, { status: 500 });
   }
 }

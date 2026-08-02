@@ -246,10 +246,10 @@ export default function Home() {
               </p>
               <PhotoInput
                 onImageCaptured={(url) => setCapturedPhoto(url)}
-                onTilesRecognized={(tilespecs: TileSpec[], winning: TileSpec | null) => {
+                onTilesRecognized={(tilespecs: TileSpec[]) => {
                   const parsed = tilespecs.map((s) => makeTile(s.suit as never, s.value as never))
                   setTiles(parsed)
-                  setWinningTile(winning ? makeTile(winning.suit as never, winning.value as never) : null)
+                  setWinningTile(null)
                   setHasScored(false)
                   setActiveTab('tiles')
                 }}

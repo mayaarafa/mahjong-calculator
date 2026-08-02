@@ -11,7 +11,7 @@ export interface TileSpec {
 
 interface PhotoInputProps {
   onImageCaptured: (dataUrl: string) => void
-  onTilesRecognized: (tiles: TileSpec[], winningTile: TileSpec | null) => void
+  onTilesRecognized: (tiles: TileSpec[]) => void
   preview?: string | null
   onClearPreview?: () => void
 }
@@ -44,10 +44,9 @@ export function PhotoInput({
           setErrorMsg(data.error)
         } else {
           const tiles: TileSpec[] = data.tiles ?? []
-          const winning: TileSpec | null = data.winningTile ?? null
           setTileCount(tiles.length)
           setStatus('done')
-          onTilesRecognized(tiles, winning)
+          onTilesRecognized(tiles)
         }
       } catch {
         setStatus('error')
