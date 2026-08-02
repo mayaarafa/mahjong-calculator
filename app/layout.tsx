@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Zen_Maru_Gothic, Shippori_Mincho } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const zenMaruGothic = Zen_Maru_Gothic({
@@ -30,6 +31,18 @@ export default function RootLayout({
       className={`${zenMaruGothic.variable} ${shipporiMincho.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=G-7EPCZTNL5Z"
+        strategy="afterInteractive"
+      />
+      <Script id="gtag-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-7EPCZTNL5Z');
+        `}
+      </Script>
     </html>
   );
 }
