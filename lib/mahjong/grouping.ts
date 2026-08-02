@@ -1,11 +1,8 @@
 import {
   Tile,
   Meld,
-  NumberedSuit,
-  NUMBERED_SUITS,
   isNumberedTile,
   isHonorTile,
-  tileEquals,
   tileKey,
   sortTiles,
 } from './tiles'
@@ -52,18 +49,6 @@ function countMapToArray(map: TileCountMap): Tile[] {
     for (let i = 0; i < count; i++) result.push(tile)
   }
   return result
-}
-
-// ── Chow validation ───────────────────────────────────────────────────────────
-
-function canFormChow(tile: Tile, map: TileCountMap): NumberedSuit | null {
-  if (!isNumberedTile(tile)) return null
-  const v = tile.value as number
-  const suit = tile.suit
-  const key2 = `${suit}:${v + 1}`
-  const key3 = `${suit}:${v + 2}`
-  if (map.get(key2)?.count && map.get(key3)?.count) return suit
-  return null
 }
 
 // ── Main decomposition (backtracking) ─────────────────────────────────────────

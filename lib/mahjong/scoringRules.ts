@@ -4,9 +4,7 @@
 import {
   Tile,
   Meld,
-  NumberedSuit,
   WindValue,
-  DragonValue,
   WIND_ORDER,
   NUMBERED_SUITS,
   isNumberedTile,
@@ -17,7 +15,6 @@ import {
   isGreenTile,
   isReversibleTile,
   tileKey,
-  tileEquals,
   sortTiles,
 } from './tiles'
 import {
@@ -77,10 +74,6 @@ export interface Pattern {
 
 // ── Helper utilities ──────────────────────────────────────────────────────────
 
-function getMeldTiles(melds: Meld[]): Tile[] {
-  return melds.flatMap((m) => m.tiles)
-}
-
 function allMelds(decomp: HandDecomposition): Meld[] {
   return [...decomp.melds, decomp.pair]
 }
@@ -109,15 +102,6 @@ function chowValue(chow: Meld): number {
 function pungValue(pung: Meld): number {
   if (!isNumberedTile(pung.tiles[0])) return -1
   return pung.tiles[0].value as number
-}
-
-function pungSuit(pung: Meld): string {
-  return pung.tiles[0].suit
-}
-
-function uniqueTileKey(meld: Meld): string {
-  const t = meld.tiles[0]
-  return tileKey(t)
 }
 
 function allTilesIn(decomp: HandDecomposition): Tile[] {
@@ -188,7 +172,6 @@ const NINE_GATES: Pattern = {
     if (tiles.length !== 14) return 0
     const suits = suitsUsed(tiles)
     if (suits.size !== 1 || suits.has('winds') || suits.has('dragons')) return 0
-    const suit = [...suits][0]
     const vals = tiles.map((t) => t.value as number).sort((a, b) => a - b)
     // Must be 1112345678999 + one extra
     const base = [1,1,1,2,3,4,5,6,7,8,9,9,9]

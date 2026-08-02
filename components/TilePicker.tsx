@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Tile, Suit, NumberValue, WindValue, DragonValue, FlowerValue, makeTile, tileKey, tileName } from '@/lib/mahjong/tiles'
 import { TileSvg } from '@/components/MahjongTileSvg'
 import { cn } from '@/lib/utils'
@@ -102,10 +102,13 @@ export function TilePicker({
   const [activeTab, setActiveTab] = useState<Suit>('bamboo')
   const [expanded, setExpanded] = useState(selectedTiles.length === 0)
 
-  // Re-open picker when tile is cleared externally (e.g. Reset)
-  useEffect(() => {
+  // Re-open picker when tile is cleared externally (e.g. Reset) —
+  // adjust during render instead of in an effect to avoid a cascading re-render
+  const [prevCount, setPrevCount] = useState(selectedTiles.length)
+  if (prevCount !== selectedTiles.length) {
+    setPrevCount(selectedTiles.length)
     if (singleSelect && selectedTiles.length === 0) setExpanded(true)
-  }, [singleSelect, selectedTiles.length])
+  }
 
   const countMap = new Map<string, number>()
   for (const t of selectedTiles) {

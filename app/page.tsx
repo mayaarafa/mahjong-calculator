@@ -18,7 +18,7 @@ import {
   DEFAULT_SETTINGS,
 } from "@/components/HandSettings";
 import { ScoreResult } from "@/components/ScoreResult";
-import { Tile, makeTile } from "@/lib/mahjong/tiles";
+import { Tile, makeTile, tileKey } from "@/lib/mahjong/tiles";
 import { scoreHand } from "@/lib/mahjong/scoringEngine";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,19 @@ type SampleHand = {
 
 function t(suit: string, value: string | number): Tile {
   return makeTile(suit as never, value as never);
+}
+
+// Recognition results come from a vision model — validate before trusting
+function isValidTileSpec(s: TileSpec): boolean {
+  if (["bamboo", "circles", "characters"].includes(s.suit))
+    return typeof s.value === "number" && s.value >= 1 && s.value <= 9;
+  if (s.suit === "flowers")
+    return typeof s.value === "number" && s.value >= 1 && s.value <= 8;
+  if (s.suit === "winds")
+    return ["east", "south", "west", "north"].includes(s.value as string);
+  if (s.suit === "dragons")
+    return ["red", "green", "white"].includes(s.value as string);
+  return false;
 }
 
 const SAMPLE_HANDS: SampleHand[] = [
@@ -203,6 +216,10 @@ export default function Home() {
 
   const updateTiles = (t: Tile[]) => {
     setTiles(t);
+    // Winning tile must be one of the hand tiles — clear it if its kind is gone
+    if (winningTile && !t.some((tile) => tileKey(tile) === tileKey(winningTile))) {
+      setWinningTile(null);
+    }
     setHasScored(false);
   };
   const updateWinningTile = (ts: Tile[]) => {
@@ -380,9 +397,9 @@ export default function Home() {
               <PhotoInput
                 onImageCaptured={(url) => setCapturedPhoto(url)}
                 onTilesRecognized={(tilespecs: TileSpec[]) => {
-                  const parsed = tilespecs.map((s) =>
-                    makeTile(s.suit as never, s.value as never),
-                  );
+                  const parsed = tilespecs
+                    .filter(isValidTileSpec)
+                    .map((s) => makeTile(s.suit as never, s.value as never));
                   setTiles(parsed);
                   setWinningTile(null);
                   setHasScored(false);
@@ -540,7 +557,7 @@ export default function Home() {
               ) : (
                 <>
                   <AlertTriangle size={14} />
-                  {result.fanPoints}/8 Fan — below minimum
+                  {result.fanPoints}/{result.minPoints} Fan — below minimum
                 </>
               )}
             </span>

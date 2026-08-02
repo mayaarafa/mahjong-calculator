@@ -1,6 +1,5 @@
-import { makeTile, resetTileIdCounter, Tile, WindValue } from '../lib/mahjong/tiles'
+import { makeTile, resetTileIdCounter, Tile } from '../lib/mahjong/tiles'
 import { scoreHand, HandInput } from '../lib/mahjong/scoringEngine'
-import { WaitType } from '../lib/mahjong/scoringRules'
 
 function t(suit: string, value: string | number): Tile {
   return makeTile(suit as never, value as never)

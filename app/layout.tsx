@@ -31,18 +31,22 @@ export default function RootLayout({
       className={`${zenMaruGothic.variable} ${shipporiMincho.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
-      <Script
-        src="https://www.googletagmanager.com/gtag/js?id=G-7EPCZTNL5Z"
-        strategy="afterInteractive"
-      />
-      <Script id="gtag-init" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-7EPCZTNL5Z');
-        `}
-      </Script>
+      {process.env.NODE_ENV === "production" && (
+        <>
+          <Script
+            src="https://www.googletagmanager.com/gtag/js?id=G-7EPCZTNL5Z"
+            strategy="afterInteractive"
+          />
+          <Script id="gtag-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-7EPCZTNL5Z');
+            `}
+          </Script>
+        </>
+      )}
     </html>
   );
 }

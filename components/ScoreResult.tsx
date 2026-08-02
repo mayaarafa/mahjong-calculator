@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import { Trophy, AlertTriangle, XCircle } from 'lucide-react'
-import { ScoringResult, PaymentBreakdown, PaymentStyle } from '@/lib/mahjong/scoringEngine'
-import { Badge } from '@/components/ui/badge'
+import { ScoringResult, PaymentStyle } from '@/lib/mahjong/scoringEngine'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 

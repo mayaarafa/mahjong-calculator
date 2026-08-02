@@ -135,22 +135,41 @@ export async function POST(request: NextRequest) {
 
   const { imageData } = await request.json();
 
+  if (typeof imageData !== "string") {
+    return Response.json({ error: "Invalid image format" }, { status: 400 });
+  }
+
   const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) {
     return Response.json({ error: "Invalid image format" }, { status: 400 });
   }
 
-  const mediaType = match[1] as
-    | "image/jpeg"
-    | "image/png"
-    | "image/gif"
-    | "image/webp";
+  const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ] as const;
+  const mediaType = match[1] as (typeof ALLOWED_TYPES)[number];
+  if (!ALLOWED_TYPES.includes(mediaType)) {
+    return Response.json({ error: "Unsupported image type" }, { status: 400 });
+  }
+
   const base64Data = match[2];
+  // Anthropic's per-image limit is 5MB; base64 inflates by 4/3
+  if (base64Data.length > 6_700_000) {
+    return Response.json(
+      { error: "Image too large — please use a smaller photo or crop tighter" },
+      { status: 413 },
+    );
+  }
 
   try {
     const message = await client.messages.create({
-      model: "claude-sonnet-5",
-      max_tokens: 2048,
+      model: "claude-opus-5",
+      max_tokens: 6144,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "high" },
       messages: [
         {
           role: "user",
