@@ -36,18 +36,21 @@ function tileImagePath(tile: Tile): string {
 
 export interface TileSvgProps {
   tile: Tile
-  /** Display height in px; width scales with the image's natural aspect ratio */
+  /** Fixed height in px — ignored when imgClass is provided */
   size?: number
+  /** Tailwind classes applied to the img — use this for responsive heights */
+  imgClass?: string
 }
 
-export function TileSvg({ tile, size = 92 }: TileSvgProps) {
+export function TileSvg({ tile, size = 92, imgClass }: TileSvgProps) {
   return (
     <div style={{ flexShrink: 0 }} className="inline-block">
       <img
         src={tileImagePath(tile)}
         alt=""
         aria-hidden="true"
-        style={{ height: size, width: 'auto', display: 'block' }}
+        className={imgClass}
+        style={imgClass ? { width: 'auto', display: 'block' } : { height: size, width: 'auto', display: 'block' }}
         draggable={false}
       />
     </div>

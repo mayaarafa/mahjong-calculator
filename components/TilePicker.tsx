@@ -43,7 +43,7 @@ function TileButton({ tile, onClick, count = 0, maxAllowed = 4 }: TileButtonProp
       title={tileName(tile)}
       aria-label={`${tileName(tile)}${count > 0 ? ` (${count} selected)` : ''}`}
     >
-      <TileSvg tile={tile} size={54} />
+      <TileSvg tile={tile} imgClass="h-16 sm:h-[54px] w-auto block" />
       {count > 0 && !disabled && (
         <span className="absolute -top-2 -right-2 bg-[#21201C] text-[#F6F1E6] rounded-full w-4 h-4 text-[10px] flex items-center justify-center font-bold leading-none z-10">
           {count}
@@ -68,7 +68,7 @@ function SelectedTileChip({ tile, onRemove }: SelectedTileProps) {
       title={`Remove ${tileName(tile)}`}
       aria-label={`Remove ${tileName(tile)}`}
     >
-      <TileSvg tile={tile} size={38} />
+      <TileSvg tile={tile} imgClass="h-14 sm:h-[38px] w-auto block" />
       <span className="absolute -top-0.5 -right-0.5 bg-[#21201C] text-[#F6F1E6] rounded-full w-3 h-3 text-[8px] flex items-center justify-center font-bold leading-none">
         ×
       </span>
@@ -85,6 +85,7 @@ export interface TilePickerProps {
   label?: string
   showFlowers?: boolean
   singleSelect?: boolean
+  allowedTiles?: Tile[]  // when set, tiles absent from this list are disabled
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ export function TilePicker({
   label,
   showFlowers = false,
   singleSelect = false,
+  allowedTiles,
 }: TilePickerProps) {
   const [activeTab, setActiveTab] = useState<Suit>('bamboo')
   const [expanded, setExpanded] = useState(selectedTiles.length === 0)
@@ -109,6 +111,14 @@ export function TilePicker({
   for (const t of selectedTiles) {
     const k = tileKey(t)
     countMap.set(k, (countMap.get(k) ?? 0) + 1)
+  }
+
+  const allowedCountMap = new Map<string, number>()
+  if (allowedTiles) {
+    for (const t of allowedTiles) {
+      const k = tileKey(t)
+      allowedCountMap.set(k, (allowedCountMap.get(k) ?? 0) + 1)
+    }
   }
 
   function addTile(template: Tile) {
@@ -199,14 +209,19 @@ export function TilePicker({
         {(suitTiles[activeTab] ?? []).map((tile) => {
           const k = tileKey(tile)
           const count = countMap.get(k) ?? 0
-          const maxAllowed = tile.suit === 'flowers' ? 1 : 4
+          let maxAllowed: number
+          if (allowedTiles) {
+            maxAllowed = (allowedCountMap.get(k) ?? 0) > 0 ? 1 : 0
+          } else {
+            maxAllowed = singleSelect ? 1 : (tile.suit === 'flowers' ? 1 : 4)
+          }
           return (
             <TileButton
               key={k}
               tile={tile}
               onClick={addTile}
               count={count}
-              maxAllowed={singleSelect ? 1 : maxAllowed}
+              maxAllowed={maxAllowed}
             />
           )
         })}

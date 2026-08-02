@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Trophy, AlertTriangle, XCircle } from 'lucide-react'
-import { ScoringResult, PaymentBreakdown } from '@/lib/mahjong/scoringEngine'
+import { ScoringResult, PaymentBreakdown, PaymentStyle } from '@/lib/mahjong/scoringEngine'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -20,11 +20,12 @@ function pointBadgeColor(pts: number): string {
 interface ScoreResultProps {
   result: ScoringResult
   basePoints: number
+  paymentStyle?: PaymentStyle
 }
 
-export function ScoreResult({ result, basePoints }: ScoreResultProps) {
+export function ScoreResult({ result, basePoints, paymentStyle = 'mcr' }: ScoreResultProps) {
   const [showExcluded, setShowExcluded] = useState(false)
-  const payment = result.payment(basePoints)
+  const payment = result.payment(basePoints, paymentStyle)
 
   if (!result.isValid) {
     return (
@@ -65,9 +66,9 @@ export function ScoreResult({ result, basePoints }: ScoreResultProps) {
           <>
             <AlertTriangle size={28} className="mx-auto mb-1 text-[#e51e28]" />
             <h2 className="text-xl font-bold font-serif text-[#e51e28]">Below Minimum</h2>
-            <p className="text-3xl font-black text-[#e51e28]">{result.fanPoints} / 8 Fan</p>
+            <p className="text-3xl font-black text-[#e51e28]">{result.fanPoints} / {result.minPoints} Fan</p>
             <p className="text-sm text-[#8A7A63] mt-1">
-              Hand scores {result.fanPoints} fan — minimum 8 required to declare a win
+              Hand scores {result.fanPoints} fan — minimum {result.minPoints} required to declare a win
             </p>
           </>
         )}
@@ -99,22 +100,28 @@ export function ScoreResult({ result, basePoints }: ScoreResultProps) {
               </>
             ) : (
               <>
-                <PayRow
-                  label="Non-discarders each pay"
-                  amount={payment.eachPlayerPays}
-                  note={`${basePoints} base only`}
-                />
+                {payment.eachPlayerPays > 0 && (
+                  <PayRow
+                    label="Non-discarders each pay"
+                    amount={payment.eachPlayerPays}
+                    note={`${payment.basePoints} base only`}
+                  />
+                )}
                 <PayRow
                   label="Discarder pays"
                   amount={payment.discarderPays!}
-                  note={`${basePoints} base + ${result.totalPoints} hand`}
+                  note={
+                    paymentStyle === 'discarder-all'
+                      ? `covers all 3 shares · 3 × (${payment.basePoints} + ${payment.totalHandPoints})`
+                      : `${payment.basePoints} base + ${payment.totalHandPoints} hand`
+                  }
                   highlight
                 />
                 <Separator />
                 <PayRow
                   label="Total received"
                   amount={payment.totalReceived}
-                  note="from 3 players"
+                  note={payment.eachPlayerPays > 0 ? 'from 3 players' : 'from discarder only'}
                   total
                 />
               </>

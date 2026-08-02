@@ -27,6 +27,7 @@ export interface HandInput {
   seatWind: WindValue
   prevalentWind: WindValue
   waitType: WaitType
+  minPoints?: number         // minimum fan to declare a win (default 8)
   isLastTile?: boolean
   isRobbingKong?: boolean
   isOutOnKong?: boolean
@@ -34,21 +35,25 @@ export interface HandInput {
   isLastDraw?: boolean
 }
 
+export type PaymentStyle = 'mcr' | 'discarder-all' | 'single-pay'
+
 export interface PaymentBreakdown {
   basePoints: number
   fanPoints: number
   flowerPoints: number
   totalHandPoints: number    // fan + flowers
   selfDraw: boolean
+  paymentStyle: PaymentStyle
   // Who pays what
-  eachPlayerPays: number     // per-player payment to winner
-  discarderPays?: number     // extra discard penalty (win by discard only)
+  eachPlayerPays: number     // per non-discarder payment (0 for single-pay / discarder-all)
+  discarderPays?: number     // what discarder pays (win by discard only)
   totalReceived: number      // total points winner receives
 }
 
 export interface ScoringResult {
   isValid: boolean
-  meetsMinimum: boolean      // >= 8 fan (excl. flowers)
+  minPoints: number
+  meetsMinimum: boolean      // fanPoints >= minPoints
   fanPoints: number
   flowerPoints: number
   totalPoints: number        // fan + flowers
@@ -57,7 +62,7 @@ export interface ScoringResult {
   decomposition: HandDecomposition | SevenPairsDecomposition | null
   isSpecialHand: boolean
   specialHandType?: 'seven-pairs' | 'thirteen-orphans' | 'greater-honors-knitted' | 'lesser-honors-knitted'
-  payment: (basePoints: number) => PaymentBreakdown
+  payment: (basePoints: number, paymentStyle?: PaymentStyle) => PaymentBreakdown
 }
 
 // ── Exclusion logic ───────────────────────────────────────────────────────────
@@ -150,9 +155,12 @@ export function scoreHand(input: HandInput): ScoringResult {
     greaterHonors ||
     lesserHonors
 
+  const minPoints = input.minPoints ?? 8
+
   if (!isValid) {
     return {
       isValid: false,
+      minPoints,
       meetsMinimum: false,
       fanPoints: 0,
       flowerPoints: input.flowers,
@@ -161,7 +169,7 @@ export function scoreHand(input: HandInput): ScoringResult {
       excludedPatterns: [],
       decomposition: null,
       isSpecialHand: false,
-      payment: (base) => makePayment(base, 0, input.flowers, input.selfDraw),
+      payment: (base, style) => makePayment(base, 0, input.flowers, input.selfDraw, style),
     }
   }
 
@@ -227,7 +235,8 @@ export function scoreHand(input: HandInput): ScoringResult {
 
   return {
     isValid: true,
-    meetsMinimum: fanPoints >= 8,
+    minPoints,
+    meetsMinimum: fanPoints >= minPoints,
     fanPoints,
     flowerPoints,
     totalPoints: fanPoints + flowerPoints,
@@ -236,7 +245,7 @@ export function scoreHand(input: HandInput): ScoringResult {
     decomposition,
     isSpecialHand: best.isSpecial,
     specialHandType: best.specialType,
-    payment: (base) => makePayment(base, fanPoints, flowerPoints, input.selfDraw),
+    payment: (base, style) => makePayment(base, fanPoints, flowerPoints, input.selfDraw, style),
   }
 }
 
@@ -246,36 +255,37 @@ function makePayment(
   basePoints: number,
   fanPoints: number,
   flowerPoints: number,
-  selfDraw: boolean
+  selfDraw: boolean,
+  paymentStyle: PaymentStyle = 'mcr'
 ): PaymentBreakdown {
   const totalHandPoints = fanPoints + flowerPoints
+  const common = { basePoints, fanPoints, flowerPoints, totalHandPoints, paymentStyle }
 
   if (selfDraw) {
-    // All 3 opponents pay base + full hand score
     const eachPlayerPays = basePoints + totalHandPoints
-    return {
-      basePoints,
-      fanPoints,
-      flowerPoints,
-      totalHandPoints,
-      selfDraw: true,
-      eachPlayerPays,
-      totalReceived: eachPlayerPays * 3,
-    }
-  } else {
-    // All 3 opponents pay base; discarder additionally pays the hand score
-    const eachPlayerPays = basePoints
+    return { ...common, selfDraw: true, eachPlayerPays, totalReceived: eachPlayerPays * 3 }
+  }
+
+  if (paymentStyle === 'discarder-all') {
+    // Discarder covers all 3 shares; non-discarders pay nothing
+    const discarderPays = 3 * (basePoints + totalHandPoints)
+    return { ...common, selfDraw: false, eachPlayerPays: 0, discarderPays, totalReceived: discarderPays }
+  }
+
+  if (paymentStyle === 'single-pay') {
+    // Only discarder pays their one share; non-discarders pay nothing
     const discarderPays = basePoints + totalHandPoints
-    return {
-      basePoints,
-      fanPoints,
-      flowerPoints,
-      totalHandPoints,
-      selfDraw: false,
-      eachPlayerPays,
-      discarderPays,
-      // Two non-discarders pay base; discarder pays base + hand
-      totalReceived: eachPlayerPays * 2 + discarderPays,
-    }
+    return { ...common, selfDraw: false, eachPlayerPays: 0, discarderPays, totalReceived: discarderPays }
+  }
+
+  // MCR (default): all 3 pay base; discarder additionally pays hand score
+  const eachPlayerPays = basePoints
+  const discarderPays = basePoints + totalHandPoints
+  return {
+    ...common,
+    selfDraw: false,
+    eachPlayerPays,
+    discarderPays,
+    totalReceived: eachPlayerPays * 2 + discarderPays,
   }
 }

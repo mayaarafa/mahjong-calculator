@@ -2,18 +2,22 @@
 
 import { WindValue } from '@/lib/mahjong/tiles'
 import { WaitType as WaitTypeFromRules } from '@/lib/mahjong/scoringRules'
+import { PaymentStyle } from '@/lib/mahjong/scoringEngine'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 
-// Re-export WaitType for external use
+// Re-export for external use
 export type { WaitType } from '@/lib/mahjong/scoringRules'
+export type { PaymentStyle } from '@/lib/mahjong/scoringEngine'
 
 export interface HandSettingsValues {
   basePoints: number
+  minPoints: number
   selfDraw: boolean
   seatWind: WindValue
   prevalentWind: WindValue
   waitType: WaitTypeFromRules
+  paymentStyle: PaymentStyle
   isLastTile: boolean
   isRobbingKong: boolean
   isOutOnKong: boolean
@@ -23,10 +27,12 @@ export interface HandSettingsValues {
 
 export const DEFAULT_SETTINGS: HandSettingsValues = {
   basePoints: 8,
+  minPoints: 8,
   selfDraw: false,
   seatWind: 'east',
   prevalentWind: 'east',
   waitType: 'two-sided',
+  paymentStyle: 'mcr',
   isLastTile: false,
   isRobbingKong: false,
   isOutOnKong: false,
@@ -112,36 +118,63 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
 
   return (
     <div className="space-y-5">
-      {/* Base Points */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-semibold text-[#21201C]">Base Points</Label>
-        <p className="text-xs text-[#8A7A63]">Points paid by all players regardless of hand score</p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => set('basePoints', Math.max(1, values.basePoints - 1))}
-            className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
-          >
-            −
-          </button>
-          <input
-            type="number"
-            min={1}
-            value={values.basePoints}
-            onChange={(e) => set('basePoints', Math.max(1, parseInt(e.target.value) || 8))}
-            className="w-16 text-center border border-[#D9CBA9] rounded-lg py-1.5 text-sm font-semibold text-[#21201C] bg-[#F6F1E6]"
-          />
-          <button
-            onClick={() => set('basePoints', values.basePoints + 1)}
-            className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
-          >
-            +
-          </button>
+      {/* Base Points + Min Points */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-[#21201C]">Base Points</Label>
+          <p className="text-xs text-[#8A7A63]">Paid by all players regardless of hand</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => set('basePoints', Math.max(1, values.basePoints - 1))}
+              className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min={1}
+              value={values.basePoints}
+              onChange={(e) => set('basePoints', Math.max(1, parseInt(e.target.value) || 8))}
+              className="w-16 text-center border border-[#D9CBA9] rounded-lg py-1.5 text-sm font-semibold text-[#21201C] bg-[#F6F1E6]"
+            />
+            <button
+              onClick={() => set('basePoints', values.basePoints + 1)}
+              className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-[#21201C]">Minimum to Win</Label>
+          <p className="text-xs text-[#8A7A63]">Minimum fan points required to declare a win</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => set('minPoints', Math.max(0, values.minPoints - 1))}
+              className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
+            >
+              −
+            </button>
+            <input
+              type="number"
+              min={0}
+              value={values.minPoints}
+              onChange={(e) => set('minPoints', Math.max(0, parseInt(e.target.value) || 8))}
+              className="w-16 text-center border border-[#D9CBA9] rounded-lg py-1.5 text-sm font-semibold text-[#21201C] bg-[#F6F1E6]"
+            />
+            <button
+              onClick={() => set('minPoints', values.minPoints + 1)}
+              className="w-8 h-8 rounded-lg border border-[#D9CBA9] flex items-center justify-center text-[#8A7A63] hover:bg-[#EFE7D8] font-bold"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 
       <Separator />
 
-      {/* Win Type */}
+      {/* Win Type + Payment Style */}
       <div className="space-y-1.5">
         <Label className="text-sm font-semibold text-[#21201C]">Win Type</Label>
         <SegmentedControl
@@ -154,10 +187,30 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
         />
       </div>
 
+      {!values.selfDraw && (
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-[#21201C]">Payment Style</Label>
+          <SegmentedControl
+            value={values.paymentStyle}
+            onChange={(v) => set('paymentStyle', v as PaymentStyle)}
+            options={[
+              { label: 'MCR', value: 'mcr' },
+              { label: 'Discarder Only', value: 'single-pay' },
+              { label: 'Discarder Pays All', value: 'discarder-all' },
+            ]}
+          />
+          <p className="text-xs text-[#8A7A63]">
+            {values.paymentStyle === 'single-pay' && 'Discarder pays hand score · Non-discarders pay nothing'}
+            {values.paymentStyle === 'mcr' && 'All pay base fee · Discarder also pays hand score'}
+            {values.paymentStyle === 'discarder-all' && 'Discarder covers all 3 shares · Non-discarders pay nothing'}
+          </p>
+        </div>
+      )}
+
       <Separator />
 
       {/* Winds */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <Label className="text-sm font-semibold text-[#21201C]">Seat Wind</Label>
           <SegmentedControl

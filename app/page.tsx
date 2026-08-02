@@ -143,6 +143,7 @@ export default function Home() {
       seatWind: settings.seatWind,
       prevalentWind: settings.prevalentWind,
       waitType: settings.waitType,
+      minPoints: settings.minPoints,
       isLastTile: settings.isLastTile,
       isRobbingKong: settings.isRobbingKong,
       isOutOnKong: settings.isOutOnKong,
@@ -295,6 +296,7 @@ export default function Home() {
                 onChange={updateWinningTile}
                 singleSelect
                 maxTiles={1}
+                allowedTiles={tiles}
               />
             </div>
 
@@ -334,7 +336,7 @@ export default function Home() {
           <TabsContent value="result" className="mt-3 space-y-3">
             {result ? (
               <>
-                <ScoreResult result={result} basePoints={settings.basePoints} />
+                <ScoreResult result={result} basePoints={settings.basePoints} paymentStyle={settings.paymentStyle} />
                 <Button variant="outline" className="w-full border-[#D9CBA9] text-[#e51e28] hover:border-[#e51e28] hover:bg-[#e51e28]/5 bg-transparent" onClick={() => setActiveTab('tiles')}>
                   ← Edit Hand
                 </Button>
