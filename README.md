@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# The Mahjong Calculator
+
+A hand scorer for **Chinese Official Rules (MCR)** mahjong. Upload a photo of your hand or enter tiles manually, set your game conditions, and get an instant breakdown of your fan points and payment amounts.
+
+## Features
+
+- **Photo recognition** — take a photo or upload an image; tiles are identified using Claude's vision API
+- **Manual tile entry** — pick tiles by suit across Bamboo, Circles, Characters, Winds, Dragons, and Flowers
+- **Full MCR scoring** — calculates fan points for all standard patterns, special hands, and bonus conditions
+- **Payment calculator** — supports MCR, Discarder Only, and Discarder Pays All payment styles
+- **Game settings** — seat wind, prevalent wind, wait type, minimum points to win, base points, and special conditions (Last Tile, Kong variants, etc.)
+- **Mobile-first** — responsive layout optimised for phone use at the table
+
+## Tech Stack
+
+- [Next.js 16](https://nextjs.org) (App Router)
+- [Tailwind CSS v4](https://tailwindcss.com)
+- [shadcn/ui](https://ui.shadcn.com)
+- [Anthropic SDK](https://github.com/anthropics/anthropic-sdk-typescript) — `claude-sonnet-5` for tile recognition
 
 ## Getting Started
 
-First, run the development server:
+```bash
+npm install
+```
+
+Create a `.env.local` file with your Anthropic API key:
+
+```
+ANTHROPIC_API_KEY=sk-...
+```
+
+Then run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+app/
+  page.tsx              # Main app shell (tabs: Photo, Tiles, Settings, Result)
+  layout.tsx            # Fonts, metadata, Google Analytics
+  icon.tsx              # Favicon (pyramid of three coloured squares)
+  api/
+    recognize-tiles/    # POST endpoint — sends image to Claude, returns tile list
+components/
+  PhotoInput.tsx        # Camera / upload UI with recognition status
+  TilePicker.tsx        # Suit-tabbed tile selector with count badges
+  HandSettings.tsx      # Game settings panel
+  ScoreResult.tsx       # Fan breakdown + payment table
+  MahjongTileSvg.tsx    # Tile image renderer
+lib/
+  mahjong/
+    tiles.ts            # Tile types and helpers
+    scoringEngine.ts    # MCR scoring logic and payment calculation
+    scoringRules.ts     # Pattern definitions
+```
 
-## Learn More
+## Running Tests
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test
+```
