@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
-import { Camera, Upload, X, Loader2, AlertTriangle, Check, Crop } from 'lucide-react'
+import { Camera, Upload, X, Loader2, AlertTriangle, Check, Crop, RotateCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export interface TileSpec {
@@ -33,10 +33,12 @@ function CropView({
   imageUrl,
   onConfirm,
   onCancel,
+  onRotate,
 }: {
   imageUrl: string
   onConfirm: (rect: CropRect) => void
   onCancel: () => void
+  onRotate: () => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [rect, setRect] = useState<CropRect>({ x: 0.05, y: 0.55, w: 0.9, h: 0.35 })
@@ -135,6 +137,16 @@ function CropView({
         Drag the box to frame just your hand — closer crops read better
       </p>
 
+      <div className="flex justify-center">
+        <button
+          onClick={onRotate}
+          className="flex items-center gap-1.5 text-xs border border-[#D9CBA9] rounded-md px-3 py-1.5 text-[#8A7A63] hover:border-[#1a449a] hover:text-[#1a449a] transition-colors"
+        >
+          <RotateCw size={14} />
+          Rotate 90°
+        </button>
+      </div>
+
       <div className="grid grid-cols-2 gap-2">
         <Button
           variant="outline"
@@ -153,6 +165,25 @@ function CropView({
       </div>
     </div>
   )
+}
+
+// Rotate by a multiple of 90°. Always applied to the original image rather
+// than the previous result, so repeated rotations don't compound JPEG loss.
+async function rotateImage(dataUrl: string, degrees: number): Promise<string> {
+  if (degrees % 360 === 0) return dataUrl
+  const img = new Image()
+  img.src = dataUrl
+  await img.decode()
+  const quarterTurn = degrees % 180 !== 0
+  const canvas = document.createElement('canvas')
+  canvas.width = quarterTurn ? img.naturalHeight : img.naturalWidth
+  canvas.height = quarterTurn ? img.naturalWidth : img.naturalHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return dataUrl
+  ctx.translate(canvas.width / 2, canvas.height / 2)
+  ctx.rotate((degrees * Math.PI) / 180)
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2)
+  return canvas.toDataURL('image/jpeg', 0.92)
 }
 
 // Crop at native resolution, then cap the long edge at 1568px — the vision
@@ -190,7 +221,10 @@ export function PhotoInput({
   const [status, setStatus] = useState<'idle' | 'recognizing' | 'done' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [tileCount, setTileCount] = useState<number>(0)
+  // originalSource is never re-encoded; cropSource is what's shown and cropped
+  const [originalSource, setOriginalSource] = useState<string | null>(null)
   const [cropSource, setCropSource] = useState<string | null>(null)
+  const [rotation, setRotation] = useState(0)
 
   const recognize = useCallback(
     async (dataUrl: string) => {
@@ -226,16 +260,27 @@ export function PhotoInput({
     setErrorMsg(null)
     const reader = new FileReader()
     reader.onload = (e) => {
-      setCropSource(e.target?.result as string)
+      const dataUrl = e.target?.result as string
+      setOriginalSource(dataUrl)
+      setCropSource(dataUrl)
+      setRotation(0)
     }
     reader.readAsDataURL(file)
   }, [])
+
+  const handleRotate = useCallback(async () => {
+    if (!originalSource) return
+    const next = (rotation + 90) % 360
+    setRotation(next)
+    setCropSource(await rotateImage(originalSource, next))
+  }, [originalSource, rotation])
 
   const handleCropConfirm = useCallback(
     async (rect: CropRect) => {
       if (!cropSource) return
       const cropped = await cropImage(cropSource, rect)
       setCropSource(null)
+      setOriginalSource(null)
       onImageCaptured(cropped)
       recognize(cropped)
     },
@@ -244,6 +289,8 @@ export function PhotoInput({
 
   const handleCropCancel = useCallback(() => {
     setCropSource(null)
+    setOriginalSource(null)
+    setRotation(0)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
@@ -300,7 +347,14 @@ export function PhotoInput({
       />
 
       {cropSource ? (
-        <CropView imageUrl={cropSource} onConfirm={handleCropConfirm} onCancel={handleCropCancel} />
+        <CropView
+          // Remount on rotate so the crop box resets to the new aspect ratio
+          key={rotation}
+          imageUrl={cropSource}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+          onRotate={handleRotate}
+        />
       ) : preview ? (
         <div className="space-y-2">
           <div className="relative rounded-xl overflow-hidden border border-[#D9CBA9]">
