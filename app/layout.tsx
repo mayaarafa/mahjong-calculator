@@ -15,9 +15,48 @@ const shipporiMincho = Shippori_Mincho({
   weight: ["400", "600", "700"],
 });
 
+const SITE_URL = "https://themahjongcalculator.com";
+
+const TITLE = "The Mahjong Calculator — MCR Scorer with Photo Recognition";
+const DESCRIPTION =
+  "Free mahjong score calculator for Chinese Official Rules (MCR). Photograph your hand for automatic tile recognition, then get instant fan points and payouts.";
+
 export const metadata: Metadata = {
-  title: "The Mahjong Calculator",
-  description: "Chinese Official Rules hand scorer",
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  // Tells Google the bare domain is canonical, since www redirects here
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    url: SITE_URL,
+    siteName: "The Mahjong Calculator",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
+};
+
+// Google still supports SoftwareApplication rich results. No aggregateRating —
+// inventing ratings violates their structured data guidelines.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "The Mahjong Calculator",
+  applicationCategory: "GameApplication",
+  operatingSystem: "Any",
+  url: SITE_URL,
+  description: DESCRIPTION,
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +69,13 @@ export default function RootLayout({
       lang="en"
       className={`${zenMaruGothic.variable} ${shipporiMincho.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+        />
+        {children}
+      </body>
       {process.env.NODE_ENV === "production" && (
         <>
           <Script

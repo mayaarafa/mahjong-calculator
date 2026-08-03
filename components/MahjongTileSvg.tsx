@@ -52,6 +52,8 @@ export function TileSvg({ tile, size = 92, imgClass }: TileSvgProps) {
         className={imgClass}
         style={imgClass ? { width: 'auto', display: 'block' } : { height: size, width: 'auto', display: 'block' }}
         draggable={false}
+        loading="lazy"
+        decoding="async"
       />
     </div>
   )

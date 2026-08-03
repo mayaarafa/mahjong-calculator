@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Check,
   LayoutGrid,
+  ChevronDown,
 } from "lucide-react";
 import { PhotoInput, TileSpec } from "@/components/PhotoInput";
 import { TilePicker } from "@/components/TilePicker";
@@ -202,6 +203,33 @@ const SAMPLE_HANDS: SampleHand[] = [
     settings: { selfDraw: false, waitType: "pair" },
   },
 ];
+
+// ── Reference content accordion ───────────────────────────────────────────────
+
+// Native <details> keeps the content in the server-rendered HTML even when
+// collapsed, so crawlers still index it — unlike a modal that mounts on click.
+function Accordion({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group border-b border-[#D9CBA9]/60 last:border-b-0">
+      <summary className="flex items-center justify-between gap-3 py-3 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <h2 className="font-semibold font-serif text-[#21201C] text-base">
+          {title}
+        </h2>
+        <ChevronDown
+          size={16}
+          className="text-[#8A7A63] flex-shrink-0 transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="space-y-2 pb-4">{children}</div>
+    </details>
+  );
+}
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 
@@ -564,6 +592,150 @@ export default function Home() {
             <span className="text-xs opacity-70">View →</span>
           </button>
         )}
+
+        {/* Reference content — rendered outside the tabs so it is in the
+            initial HTML for search crawlers, and useful to first-time visitors */}
+        <section className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] px-4 sm:px-6 py-3 sm:py-4 mt-2">
+          <p className="text-xs text-[#8A7A63] font-medium uppercase tracking-wide py-1">
+            Guide &amp; FAQ
+          </p>
+
+          <Accordion title="How mahjong scoring works in Chinese Official Rules">
+            <p className="text-sm text-[#8A7A63] leading-relaxed">
+              Chinese Official Rules — also called MCR, or Mahjong Competition
+              Rules — scores a winning hand by adding up every scoring pattern it
+              contains. Each pattern is worth a set number of points, called{" "}
+              <em>fan</em>, ranging from 1 fan for common shapes like a Pure
+              Double Chow up to 88 fan for rare hands such as Big Four Winds or
+              Nine Gates.
+            </p>
+            <p className="text-sm text-[#8A7A63] leading-relaxed">
+              Patterns stack, so a single hand usually scores several at once.
+              The rules also define which patterns exclude each other, so a
+              higher pattern absorbs the lower ones it implies rather than
+              double-counting them. A hand must reach a minimum total — 8 fan by
+              default under MCR — before it can be declared a win. This
+              calculator applies those exclusions automatically and totals what
+              remains.
+            </p>
+          </Accordion>
+
+          <Accordion title="Scoring your hand from a photo">
+            <p className="text-sm text-[#8A7A63] leading-relaxed">
+              Instead of entering fourteen tiles by hand, you can photograph the
+              hand in front of you. Open the Photo tab, take a picture or upload
+              one, then drag the crop box around just your row of tiles — a tight
+              crop reads far more reliably than a whole table, because the tiles
+              fill more of the image.
+            </p>
+            <p className="text-sm text-[#8A7A63] leading-relaxed">
+              The cropped image is sent to a vision model that identifies each
+              tile and fills in the Tiles tab for you. Recognition is not
+              perfect, particularly on bamboo tiles where the count of stalks
+              matters, so check the detected tiles and tap any that are wrong to
+              correct them before scoring.
+            </p>
+          </Accordion>
+
+          <Accordion title="Payment styles explained">
+            <p className="text-sm text-[#8A7A63] leading-relaxed">
+              When you win on a discard, different regions settle up
+              differently, so the calculator offers three options in Settings.
+            </p>
+            <ul className="text-sm text-[#8A7A63] leading-relaxed space-y-1.5 list-disc pl-5">
+              <li>
+                <strong className="text-[#21201C] font-medium">MCR</strong> —
+                every player pays the base fee, and the discarder additionally
+                pays your hand score. This is the official tournament settlement.
+              </li>
+              <li>
+                <strong className="text-[#21201C] font-medium">
+                  Discarder Only
+                </strong>{" "}
+                — the discarder pays your hand score and the other two players
+                pay nothing.
+              </li>
+              <li>
+                <strong className="text-[#21201C] font-medium">
+                  Discarder Pays All
+                </strong>{" "}
+                — the discarder covers all three shares alone, a common house
+                rule that penalises careless discards heavily.
+              </li>
+            </ul>
+            <p className="text-sm text-[#8A7A63] leading-relaxed">
+              On a self-drawn win all three opponents pay, so the setting does
+              not apply and is hidden.
+            </p>
+          </Accordion>
+
+          <Accordion title="Common questions">
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-[#21201C]">
+                What is a fan?
+              </h3>
+              <p className="text-sm text-[#8A7A63] leading-relaxed">
+                A fan is the point value of a single scoring pattern. Your hand
+                score is the sum of the fan from every pattern it contains, plus
+                any bonus for flowers and special winning conditions.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-[#21201C]">
+                Which rule set does this calculator use?
+              </h3>
+              <p className="text-sm text-[#8A7A63] leading-relaxed">
+                Chinese Official Rules (MCR), the 81-pattern system used in
+                international competition. It is not Japanese Riichi scoring, so
+                yaku, dora and han are not calculated here.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-[#21201C]">
+                Does the order I enter tiles matter?
+              </h3>
+              <p className="text-sm text-[#8A7A63] leading-relaxed">
+                No. The scoring engine tries every valid way of splitting your
+                tiles into sets and pairs, then keeps whichever arrangement
+                scores highest. You can enter tiles in any order.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-[#21201C]">
+                Are flower tiles counted?
+              </h3>
+              <p className="text-sm text-[#8A7A63] leading-relaxed">
+                Yes. Flowers are bonus tiles that sit outside the fourteen-tile
+                hand and each add a point. Add them in the Flowers tab of the
+                tile picker and they are included automatically.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-[#21201C]">
+                Can I change the minimum score needed to win?
+              </h3>
+              <p className="text-sm text-[#8A7A63] leading-relaxed">
+                Yes. MCR sets the minimum at 8 fan, but many casual games use a
+                lower threshold. Both the minimum and the base points are
+                adjustable in Settings.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-sm font-medium text-[#21201C]">
+                Is it free?
+              </h3>
+              <p className="text-sm text-[#8A7A63] leading-relaxed">
+                Yes — the calculator and the photo recognition are both free to
+                use, with no account required.
+              </p>
+            </div>
+          </Accordion>
+        </section>
       </main>
     </div>
   );
