@@ -1,7 +1,14 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI, Type } from "@google/genai";
 import { NextRequest } from "next/server";
 
-const client = new Anthropic();
+// Passed explicitly — without it the SDK falls back to Google Cloud
+// application-default credentials and fails with an unrelated error
+const API_KEY = process.env.GEMINI_API_KEY;
+const client = new GoogleGenAI({ apiKey: API_KEY });
+
+// Free tier gives this model 15 RPM / 500 requests per day.
+// Swap for "gemini-3.1-flash-lite" (same limits) or a Flash model (5 RPM / 20 RPD).
+const MODEL = "gemini-3.5-flash-lite";
 
 // In-memory rate limiter: 10 requests per IP per minute
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -20,7 +27,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-const PROMPT = `You are an expert at reading mahjong tiles from photos. Follow these steps carefully.
+const PROMPT = `You are an expert at reading mahjong tiles from photos.
 
 STEP 1 — Find the player's hand:
 Look for the neat horizontal row of face-up tiles arranged close to the camera in the foreground, along the nearest edge of the table. This is the player's hand. IGNORE everything else:
@@ -29,8 +36,7 @@ Look for the neat horizontal row of face-up tiles arranged close to the camera i
 - Face-down tiles
 - Any tiles not part of this specific neat foreground row
 
-STEP 2 — Read each tile left to right:
-For each tile in the foreground row, identify its suit and value using these descriptions:
+STEP 2 — Read each tile left to right using these descriptions:
 
 BAMBOO (綠/bamboo sticks):
 - Bamboo 1: has a colourful bird (phoenix/peacock) design — NOT bamboo sticks
@@ -63,44 +69,75 @@ FLOWERS (花):
 - 春/spring=5, 夏/summer=6, 秋/autumn=7, 冬/winter=8
 - Include flowers in the tiles array; they are bonus tiles
 
-STEP 3 — Check your count:
-- A standard hand has 13–18 non-flower tiles. Recount if outside this range.
-- No more than 4 copies of any single non-flower tile. If you counted 5+, recount — it is always 4 or fewer.
-- No more than 1 copy of each flower tile.
+STEP 3 — Fill in "readings" FIRST, one entry per tile, left to right:
+  "Tile 1: bamboo 3 (counted 3 stalks)"
+  "Tile 2: west wind (西 character)"
+  "Tile 3: circles 6 (2 columns of 3 dots)"
+For bamboo state how many stalks you counted. For circles state the dot arrangement.
+For winds/dragons state the Chinese character. Counting explicitly here before filling in
+"tiles" forces careful reading.
 
-STEP 4 — Identify the winning tile (optional):
-If one tile is slightly separated or pulled apart from the rest of the hand, it may be the declared winning tile. If so, include it both in "tiles" AND in "winningTile". Otherwise set "winningTile" to null.
+STEP 4 — Fill in "tiles" to match your readings exactly, in the same order.
+Sanity checks: a standard hand has 13–18 non-flower tiles; no more than 4 copies of any
+non-flower tile; no more than 1 of each flower. Recount if any check fails.
 
-STEP 5 — List every tile out loud:
-Before writing JSON, write each tile from left to right on its own line in this format:
-  Tile 1: bamboo 3 (counted 3 stalks)
-  Tile 2: west wind (西 character)
-  Tile 3: circles 6 (2 columns of 3 dots)
-  ...
-For bamboo tiles explicitly state how many stalks you counted. For wind/dragon tiles state the Chinese character you see. For circles tiles state the dot arrangement. This forces careful counting before committing to output.
+Value format: use "1"–"9" for bamboo/circles/characters/flowers;
+"east"/"south"/"west"/"north" for winds; "red"/"green"/"white" for dragons.
 
-STEP 6 — Output:
-Return ONLY valid JSON in exactly this format (no explanation, no markdown fences):
-{
-  "tiles": [
-    { "suit": "bamboo", "value": 1 },
-    { "suit": "circles", "value": 5 },
-    { "suit": "characters", "value": 9 },
-    { "suit": "winds", "value": "east" },
-    { "suit": "dragons", "value": "red" },
-    { "suit": "flowers", "value": 1 }
-  ],
-  "winningTile": null
-}
+If the image is too unclear to read any tiles, return an empty "tiles" array.`;
 
-Valid suit values: "bamboo", "circles", "characters", "winds", "dragons", "flowers"
-Valid value types: 1–9 (integer) for bamboo/circles/characters/flowers; "east"/"south"/"west"/"north" for winds; "red"/"green"/"white" for dragons
-
-If the image is too unclear to read, return: { "error": "Cannot identify tiles from this image" }`;
+const RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    readings: {
+      type: Type.ARRAY,
+      description: "Per-tile reasoning, left to right, one entry per tile",
+      items: { type: Type.STRING },
+    },
+    tiles: {
+      type: Type.ARRAY,
+      description: "The identified tiles, same order as readings",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          suit: {
+            type: Type.STRING,
+            enum: [
+              "bamboo",
+              "circles",
+              "characters",
+              "winds",
+              "dragons",
+              "flowers",
+            ],
+          },
+          value: {
+            type: Type.STRING,
+            description:
+              '"1"-"9" for bamboo/circles/characters/flowers; wind or dragon name otherwise',
+          },
+        },
+        required: ["suit", "value"],
+        propertyOrdering: ["suit", "value"],
+      },
+    },
+  },
+  required: ["readings", "tiles"],
+  // Generate the reasoning before committing to tile identities
+  propertyOrdering: ["readings", "tiles"],
+};
 
 interface TileSpec {
   suit: string;
   value: number | string;
+}
+
+const NUMBERED_SUITS = ["bamboo", "circles", "characters", "flowers"];
+
+// The schema returns every value as a string; numbered suits need real numbers
+// so the response shape stays the same as before.
+function coerceValue(suit: string, value: string): number | string {
+  return NUMBERED_SUITS.includes(suit) ? Number(value) : value;
 }
 
 function tileKey(t: TileSpec): string {
@@ -124,6 +161,13 @@ function sanitizeTiles(tiles: TileSpec[]): TileSpec[] {
 }
 
 export async function POST(request: NextRequest) {
+  if (!API_KEY) {
+    return Response.json(
+      { error: "Server is missing GEMINI_API_KEY — set it in .env.local" },
+      { status: 500 },
+    );
+  }
+
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
   if (!checkRateLimit(ip)) {
@@ -150,14 +194,15 @@ export async function POST(request: NextRequest) {
     "image/gif",
     "image/webp",
   ] as const;
-  const mediaType = match[1] as (typeof ALLOWED_TYPES)[number];
-  if (!ALLOWED_TYPES.includes(mediaType)) {
+  const mimeType = match[1] as (typeof ALLOWED_TYPES)[number];
+  if (!ALLOWED_TYPES.includes(mimeType)) {
     return Response.json({ error: "Unsupported image type" }, { status: 400 });
   }
 
   const base64Data = match[2];
-  // Anthropic's per-image limit is 5MB; base64 inflates by 4/3
-  if (base64Data.length > 6_700_000) {
+  // Inline image data must fit in the request payload; the client crop keeps
+  // images well under this, so hitting it means something went wrong upstream.
+  if (base64Data.length > 14_000_000) {
     return Response.json(
       { error: "Image too large — please use a smaller photo or crop tighter" },
       { status: 413 },
@@ -165,64 +210,52 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const message = await client.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 6144,
-      thinking: { type: "adaptive" },
-      output_config: { effort: "high" },
-      messages: [
+    const response = await client.models.generateContent({
+      model: MODEL,
+      contents: [
         {
           role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: mediaType,
-                data: base64Data,
-              },
-            },
-            { type: "text", text: PROMPT },
+          parts: [
+            { inlineData: { mimeType, data: base64Data } },
+            { text: PROMPT },
           ],
         },
       ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: RESPONSE_SCHEMA,
+        // -1 lets the model decide how much to think; counting benefits from it
+        thinkingConfig: { thinkingBudget: -1 },
+      },
     });
 
-    const textBlock = message.content.find((b) => b.type === "text");
-    const text =
-      textBlock && "text" in textBlock ? String(textBlock.text).trim() : "";
-    const cleaned = text
-      .replace(/^```(?:json)?\n?/, "")
-      .replace(/\n?```$/, "")
-      .trim();
-
-    let parsed: {
-      tiles?: TileSpec[];
-      winningTile?: TileSpec | null;
-      error?: string;
-    };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[0]);
-      } else {
-        return Response.json(
-          { error: "Unexpected response from vision model" },
-          { status: 500 },
-        );
-      }
+    const text = response.text;
+    if (!text) {
+      return Response.json(
+        { error: "Empty response from vision model" },
+        { status: 502 },
+      );
     }
 
-    if (parsed.error) return Response.json(parsed);
+    // responseSchema guarantees well-formed JSON, so a plain parse is enough
+    const parsed = JSON.parse(text) as {
+      tiles?: { suit: string; value: string }[];
+    };
 
-    // Sanitize: cap each tile at its legal maximum
-    const sanitizedTiles = sanitizeTiles(parsed.tiles ?? []);
+    const tiles: TileSpec[] = (parsed.tiles ?? []).map((t) => ({
+      suit: t.suit,
+      value: coerceValue(t.suit, t.value),
+    }));
+
+    if (tiles.length === 0) {
+      return Response.json({
+        error: "Cannot identify tiles from this image",
+      });
+    }
 
     return Response.json({
-      tiles: sanitizedTiles,
-      winningTile: parsed.winningTile ?? null,
+      tiles: sanitizeTiles(tiles),
+      winningTile: null,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
