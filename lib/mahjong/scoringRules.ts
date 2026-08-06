@@ -168,6 +168,7 @@ const NINE_GATES: Pattern = {
     'all-simples', 'no-honors', 'concealed-hand', 'pung-terminals-honors', 'two-terminal-chows'],
   score(ctx, decomp) {
     if (!decomp) return 0
+    if (ctx.declaredMelds.length > 0) return 0 // must be fully concealed
     const tiles = sortTiles(ctx.allTiles)
     if (tiles.length !== 14) return 0
     const suits = suitsUsed(tiles)
@@ -222,6 +223,7 @@ const THIRTEEN_ORPHANS_PATTERN: Pattern = {
   points: 88,
   excludes: ['all-types', 'no-honors', 'pung-terminals-honors', 'concealed-hand', 'single-tile-wait'],
   score(ctx) {
+    if (ctx.declaredMelds.length > 0) return 0 // must be fully concealed
     return isThirteenOrphans(ctx.allTiles) ? 1 : 0
   },
 }
@@ -341,7 +343,7 @@ const QUADRUPLE_CHOW: Pattern = {
 const FOUR_PURE_SHIFTED_PUNGS: Pattern = {
   id: 'four-pure-shifted-pungs',
   name: 'Four Pure Shifted Pungs',
-  chineseName: '一色四步高',
+  chineseName: '一色四节高',
   points: 48,
   excludes: ['pure-shifted-pungs', 'all-pungs', 'full-flush', 'no-honors', 'double-pung'],
   score(ctx, decomp) {
@@ -368,7 +370,7 @@ const FOUR_PURE_SHIFTED_PUNGS: Pattern = {
 const FOUR_SHIFTED_CHOWS: Pattern = {
   id: 'four-shifted-chows',
   name: 'Four Shifted Chows',
-  chineseName: '一色四节高',
+  chineseName: '一色四步高',
   points: 32,
   excludes: ['pure-shifted-chows', 'all-chows', 'full-flush', 'no-honors', 'short-straight',
     'pure-double-chow', 'mixed-double-chow'],
@@ -431,11 +433,12 @@ const SEVEN_PAIRS: Pattern = {
 const GREATER_HONORS_KNITTED: Pattern = {
   id: 'greater-honors-knitted',
   name: 'Greater Honors and Knitted Tiles',
-  chineseName: '全不靠',
+  chineseName: '七星不靠',
   points: 24,
   excludes: ['lesser-honors-knitted', 'knitted-straight', 'all-types', 'no-honors',
     'concealed-hand', 'one-voided-suit'],
   score(ctx) {
+    if (ctx.declaredMelds.length > 0) return 0 // knitted tiles cannot be melded
     return isGreaterHonorsAndKnitted(ctx.allTiles) ? 1 : 0
   },
 }
@@ -483,7 +486,7 @@ const PURE_TRIPLE_CHOW: Pattern = {
 const PURE_SHIFTED_PUNGS: Pattern = {
   id: 'pure-shifted-pungs',
   name: 'Pure Shifted Pungs',
-  chineseName: '一色三步高',
+  chineseName: '一色三节高',
   points: 24,
   excludes: ['all-pungs', 'full-flush', 'no-honors', 'double-pung'],
   score(ctx, decomp) {
@@ -504,7 +507,7 @@ const PURE_SHIFTED_PUNGS: Pattern = {
 const UPPER_TILES: Pattern = {
   id: 'upper-tiles',
   name: 'Upper Tiles',
-  chineseName: '大于五',
+  chineseName: '全大',
   points: 24,
   excludes: ['no-honors', 'all-simples', 'upper-four', 'middle-tiles'],
   score(ctx, decomp, sevenPairs) {
@@ -530,7 +533,7 @@ const MIDDLE_TILES: Pattern = {
 const LOWER_TILES: Pattern = {
   id: 'lower-tiles',
   name: 'Lower Tiles',
-  chineseName: '小于五',
+  chineseName: '全小',
   points: 24,
   excludes: ['no-honors', 'all-simples', 'lower-four', 'middle-tiles'],
   score(ctx, decomp, sevenPairs) {
@@ -582,7 +585,7 @@ const THREE_SUITED_TERMINAL_CHOWS: Pattern = {
 const PURE_SHIFTED_CHOWS: Pattern = {
   id: 'pure-shifted-chows',
   name: 'Pure Shifted Chows',
-  chineseName: '一色三节高',
+  chineseName: '一色三步高',
   points: 16,
   excludes: ['all-chows', 'full-flush', 'no-honors', 'short-straight', 'pure-double-chow'],
   score(ctx, decomp) {
@@ -648,10 +651,11 @@ const THREE_CONCEALED_PUNGS: Pattern = {
 const LESSER_HONORS_KNITTED: Pattern = {
   id: 'lesser-honors-knitted',
   name: 'Lesser Honors and Knitted Tiles',
-  chineseName: '七星不靠',
+  chineseName: '全不靠',
   points: 12,
   excludes: ['knitted-straight', 'all-types', 'no-honors', 'one-voided-suit', 'concealed-hand'],
   score(ctx) {
+    if (ctx.declaredMelds.length > 0) return 0 // knitted tiles cannot be melded
     return isLesserHonorsAndKnitted(ctx.allTiles) ? 1 : 0
   },
 }
@@ -714,18 +718,24 @@ const BIG_THREE_WINDS: Pattern = {
 const MIXED_STRAIGHT: Pattern = {
   id: 'mixed-straight',
   name: 'Mixed Straight',
-  chineseName: '三色三同顺',
+  chineseName: '花龙',
   points: 8,
-  excludes: ['all-chows', 'no-honors', 'mixed-double-chow'],
+  excludes: [],
   score(ctx, decomp) {
     if (!decomp) return 0
     const cs = chows(decomp)
-    // 123 in each of three suits, or 456, or 789, etc.
-    for (let startVal = 1; startVal <= 7; startVal++) {
-      const has = NUMBERED_SUITS.every((s) =>
-        cs.some((c) => c.tiles[0].suit === s && chowValue(c) === startVal)
-      )
-      if (has) return 1
+    // 1-2-3, 4-5-6 and 7-8-9 spread one per suit, in any arrangement
+    const S = NUMBERED_SUITS
+    const orders = [
+      [0, 1, 2], [0, 2, 1], [1, 0, 2],
+      [1, 2, 0], [2, 0, 1], [2, 1, 0],
+    ]
+    for (const [a, b, c] of orders) {
+      if (
+        cs.some((m) => m.tiles[0].suit === S[a] && chowValue(m) === 1) &&
+        cs.some((m) => m.tiles[0].suit === S[b] && chowValue(m) === 4) &&
+        cs.some((m) => m.tiles[0].suit === S[c] && chowValue(m) === 7)
+      ) return 1
     }
     return 0
   },
@@ -734,7 +744,7 @@ const MIXED_STRAIGHT: Pattern = {
 const REVERSIBLE_TILES: Pattern = {
   id: 'reversible-tiles',
   name: 'Reversible Tiles',
-  chineseName: '可逆对',
+  chineseName: '推不倒',
   points: 8,
   excludes: ['no-honors', 'all-simples'],
   score(ctx, decomp, sevenPairs) {
@@ -743,10 +753,43 @@ const REVERSIBLE_TILES: Pattern = {
   },
 }
 
+// 三色三同顺 — the same numbered chow in all three suits
+const MIXED_TRIPLE_CHOW: Pattern = {
+  id: 'mixed-triple-chow',
+  name: 'Mixed Triple Chow',
+  chineseName: '三色三同顺',
+  points: 8,
+  excludes: ['mixed-double-chow'],
+  score(ctx, decomp) {
+    if (!decomp) return 0
+    const cs = chows(decomp)
+    for (let v = 1; v <= 7; v++) {
+      const suitsAtValue = new Set(
+        cs.filter((c) => chowValue(c) === v).map((c) => c.tiles[0].suit)
+      )
+      if (NUMBERED_SUITS.every((s) => suitsAtValue.has(s))) return 1
+    }
+    return 0
+  },
+}
+
+// 双暗杠 — two kongs drawn entirely by the winner
+const TWO_CONCEALED_KONGS: Pattern = {
+  id: 'two-concealed-kongs',
+  name: 'Two Concealed Kongs',
+  chineseName: '双暗杠',
+  points: 6,
+  excludes: ['concealed-kong'],
+  score(ctx, decomp) {
+    if (!decomp) return 0
+    return kongs(decomp).filter((m) => m.concealed).length >= 2 ? 1 : 0
+  },
+}
+
 const MIXED_SHIFTED_PUNGS: Pattern = {
   id: 'mixed-shifted-pungs',
   name: 'Mixed Shifted Pungs',
-  chineseName: '三色三步高',
+  chineseName: '三色三节高',
   points: 8,
   excludes: ['all-pungs', 'no-honors', 'double-pung'],
   score(ctx, decomp) {
@@ -771,8 +814,8 @@ const MIXED_SHIFTED_PUNGS: Pattern = {
 const LAST_TILE: Pattern = {
   id: 'last-tile',
   name: 'Last Tile',
-  chineseName: '绝张',
-  points: 8,
+  chineseName: '和绝张',
+  points: 4,
   excludes: [],
   score(ctx) {
     return ctx.isLastTile ? 1 : 0
@@ -943,7 +986,7 @@ const LAST_TILE_CLAIM: Pattern = {
   id: 'last-tile-claim',
   name: 'Last Tile Claim',
   chineseName: '河底捞鱼',
-  points: 4,
+  points: 8,
   excludes: ['last-tile-draw'],
   score(ctx) {
     return ctx.isLastClaim && !ctx.selfDraw ? 1 : 0
@@ -954,7 +997,7 @@ const LAST_TILE_DRAW: Pattern = {
   id: 'last-tile-draw',
   name: 'Last Tile Draw',
   chineseName: '海底捞月',
-  points: 4,
+  points: 8,
   excludes: ['last-tile-claim'],
   score(ctx) {
     return ctx.isLastDraw && ctx.selfDraw ? 1 : 0
@@ -1034,6 +1077,7 @@ const TILE_HOG: Pattern = {
     if (!decomp) return 0
     // A tile hog is when all 4 copies of a tile are used (not as kong)
     // i.e., same tile appears 4 times across chows/pungs/pair
+    const kongKeys = new Set(kongs(decomp).map((m) => tileKey(m.tiles[0])))
     const tiles = allTilesIn(decomp)
     const counts = new Map<string, number>()
     for (const t of tiles) {
@@ -1041,8 +1085,8 @@ const TILE_HOG: Pattern = {
       counts.set(k, (counts.get(k) ?? 0) + 1)
     }
     let count = 0
-    for (const [, c] of counts) {
-      if (c === 4) count++
+    for (const [k, c] of counts) {
+      if (c === 4 && !kongKeys.has(k)) count++
     }
     return count
   },
@@ -1306,6 +1350,20 @@ const SELF_DRAW: Pattern = {
   },
 }
 
+// 无番和 — awarded only when a legal hand matches no other pattern at all.
+// Deliberately NOT in ALL_PATTERNS: the engine appends it after exclusions,
+// since it depends on the final tally rather than on the tiles.
+export const CHICKEN_HAND: Pattern = {
+  id: 'chicken-hand',
+  name: 'Chicken Hand',
+  chineseName: '无番和',
+  points: 8,
+  excludes: [],
+  score() {
+    return 0
+  },
+}
+
 // ── All patterns in priority order ────────────────────────────────────────────
 
 export const ALL_PATTERNS: Pattern[] = [
@@ -1357,23 +1415,25 @@ export const ALL_PATTERNS: Pattern[] = [
   // 8 points
   MIXED_STRAIGHT,
   REVERSIBLE_TILES,
+  MIXED_TRIPLE_CHOW,
   MIXED_SHIFTED_PUNGS,
-  LAST_TILE,
   OUT_ON_KONG,
   ROBBING_KONG,
+  LAST_TILE_CLAIM,
+  LAST_TILE_DRAW,
   // 6 points
   ALL_PUNGS,
   HALF_FLUSH,
   MIXED_SHIFTED_CHOWS,
   ALL_TYPES,
   MELDED_HAND,
+  TWO_CONCEALED_KONGS,
   TWO_DRAGON_PUNGS,
   // 4 points
   OUTSIDE_HAND,
   FULLY_CONCEALED_HAND,
   TWO_MELDED_KONGS,
-  LAST_TILE_CLAIM,
-  LAST_TILE_DRAW,
+  LAST_TILE,
   // 2 points
   DRAGON_PUNG,
   PREVALENT_WIND,

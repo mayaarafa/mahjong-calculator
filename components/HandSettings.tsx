@@ -248,14 +248,21 @@ export function HandSettings({ values, onChange }: HandSettingsProps) {
           value={values.waitType}
           onChange={(v) => set('waitType', v as WaitTypeFromRules)}
           options={[
-            { label: '↔ Two-sided', value: 'two-sided' },
-            { label: '→ Edge', value: 'edge' },
-            { label: '· Closed', value: 'closed' },
-            { label: '= Pair', value: 'pair' },
+            { label: 'None', value: 'two-sided' },
+            { label: 'Edge', value: 'edge' },
+            { label: 'Closed', value: 'closed' },
+            { label: 'Single', value: 'pair' },
           ]}
         />
         <p className="text-xs text-[#8A7A63]">
-          Edge (1-2 or 8-9 wait) · Closed (inside wait) · Pair (waiting on pair)
+          {values.waitType === 'two-sided' &&
+            'No wait bonus — two-sided waits and dual pung waits (two pairs, either completing a pung) score nothing'}
+          {values.waitType === 'edge' &&
+            'Waiting on 3 to finish 1-2, or on 7 to finish 8-9'}
+          {values.waitType === 'closed' &&
+            'Waiting on the middle tile of a gap, such as 4 to finish 3-5'}
+          {values.waitType === 'pair' &&
+            'Waiting on the single tile that completes your pair (单钓将)'}
         </p>
       </div>
 

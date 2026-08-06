@@ -20,6 +20,12 @@ import {
 } from "@/components/HandSettings";
 import { ScoreResult } from "@/components/ScoreResult";
 import { Tile, makeTile, tileKey } from "@/lib/mahjong/tiles";
+import {
+  ExposedMelds,
+  ExposedMeldSpec,
+  subtractMelds,
+  toMeld,
+} from "@/components/ExposedMelds";
 import { scoreHand } from "@/lib/mahjong/scoringEngine";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -241,12 +247,30 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("tiles");
   const [hasScored, setHasScored] = useState(false);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [fullyConcealed, setFullyConcealed] = useState(true);
+  const [exposedMelds, setExposedMelds] = useState<ExposedMeldSpec[]>([]);
 
   const updateTiles = (t: Tile[]) => {
     setTiles(t);
     // Winning tile must be one of the hand tiles — clear it if its kind is gone
     if (winningTile && !t.some((tile) => tileKey(tile) === tileKey(winningTile))) {
       setWinningTile(null);
+    }
+    // Drop any exposed set the edited hand can no longer supply tiles for
+    const nonFlower = t.filter((tile) => tile.suit !== "flowers");
+    if (
+      exposedMelds.length > 0 &&
+      subtractMelds(nonFlower, exposedMelds) === null
+    ) {
+      setExposedMelds(
+        exposedMelds.reduce<ExposedMeldSpec[]>(
+          (kept, spec) =>
+            subtractMelds(nonFlower, [...kept, spec]) === null
+              ? kept
+              : [...kept, spec],
+          [],
+        ),
+      );
     }
     setHasScored(false);
   };
@@ -262,19 +286,31 @@ export default function Home() {
   const nonFlowerTiles = tiles.filter((t) => t.suit !== "flowers");
   const flowerTiles = tiles.filter((t) => t.suit === "flowers");
 
+  // The engine wants the concealed tiles and the exposed sets separately
+  const activeMelds = useMemo(
+    () => (fullyConcealed ? [] : exposedMelds),
+    [fullyConcealed, exposedMelds],
+  );
+  const concealedTiles = useMemo(
+    () => subtractMelds(nonFlowerTiles, activeMelds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tiles, activeMelds],
+  );
+
   const result = useMemo(() => {
     if (
       !hasScored ||
       nonFlowerTiles.length < 14 ||
       nonFlowerTiles.length > 18 ||
-      !winningTile
+      !winningTile ||
+      !concealedTiles
     )
       return null;
     return scoreHand({
-      tiles: nonFlowerTiles,
+      tiles: concealedTiles,
       flowers: flowerTiles.length,
       winningTile,
-      declaredMelds: [],
+      declaredMelds: activeMelds.map(toMeld),
       selfDraw: settings.selfDraw,
       seatWind: settings.seatWind,
       prevalentWind: settings.prevalentWind,
@@ -286,7 +322,15 @@ export default function Home() {
       isLastClaim: settings.isLastClaim,
       isLastDraw: settings.isLastDraw,
     });
-  }, [hasScored, nonFlowerTiles, winningTile, settings, flowerTiles.length]);
+  }, [
+    hasScored,
+    nonFlowerTiles,
+    winningTile,
+    settings,
+    flowerTiles.length,
+    activeMelds,
+    concealedTiles,
+  ]);
 
   const handleScore = () => {
     setHasScored(true);
@@ -300,6 +344,8 @@ export default function Home() {
     setHasScored(false);
     setActiveTab("tiles");
     setCapturedPhoto(null);
+    setFullyConcealed(true);
+    setExposedMelds([]);
   };
 
   const loadSample = (sample: SampleHand) => {
@@ -313,7 +359,8 @@ export default function Home() {
   const canScore =
     nonFlowerTiles.length >= 14 &&
     nonFlowerTiles.length <= 18 &&
-    winningTile !== null;
+    winningTile !== null &&
+    concealedTiles !== null;
 
   const tileCountLabel = () => {
     if (nonFlowerTiles.length === 0) return "No tiles";
@@ -463,6 +510,78 @@ export default function Home() {
                 maxTiles={18}
                 showFlowers
               />
+            </div>
+
+            <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-3 sm:p-4">
+              <div className="mb-2.5">
+                <h2 className="font-semibold font-serif text-[#21201C] text-sm">
+                  Exposed Sets
+                </h2>
+                <p className="text-xs text-[#8A7A63]">
+                  Sets you claimed from a discard — these are not concealed
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setFullyConcealed(!fullyConcealed);
+                  setHasScored(false);
+                }}
+                className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
+                  fullyConcealed
+                    ? "border-[#1a449a] bg-[#1a449a]/5"
+                    : "border-[#D9CBA9] bg-[#F6F1E6] hover:border-[#1a449a]"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                    fullyConcealed
+                      ? "bg-[#1a449a] border-[#1a449a]"
+                      : "border-[#D9CBA9]"
+                  }`}
+                >
+                  {fullyConcealed && (
+                    <svg
+                      className="w-2.5 h-2.5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-[#21201C]">
+                    Fully concealed hand
+                  </p>
+                  <p className="text-xs text-[#8A7A63] mt-0.5">
+                    Nothing was claimed from a discard
+                  </p>
+                </div>
+              </button>
+
+              {!fullyConcealed && (
+                <div className="mt-3">
+                  <ExposedMelds
+                    handTiles={nonFlowerTiles}
+                    melds={exposedMelds}
+                    onChange={(m) => {
+                      setExposedMelds(m);
+                      setHasScored(false);
+                    }}
+                  />
+                  {concealedTiles === null && (
+                    <p className="text-xs text-[#e51e28] mt-2">
+                      Those sets need tiles your hand doesn&apos;t contain.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="bg-[#EFE7D8] rounded-xl border border-[#D9CBA9] p-3 sm:p-4">

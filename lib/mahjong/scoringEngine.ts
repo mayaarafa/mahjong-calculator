@@ -14,15 +14,16 @@ import {
   ScoringContext,
   WaitType,
   ALL_PATTERNS,
+  CHICKEN_HAND,
 } from './scoringRules'
 
 // ── Public input type ─────────────────────────────────────────────────────────
 
 export interface HandInput {
-  tiles: Tile[]              // 13+1 hand tiles (no flowers)
+  tiles: Tile[]              // concealed hand tiles only, excluding declaredMelds (no flowers)
   flowers: number
   winningTile: Tile
-  declaredMelds: Meld[]      // Open/declared sets
+  declaredMelds: Meld[]      // Open/declared sets — their tiles must NOT appear in `tiles`
   selfDraw: boolean
   seatWind: WindValue
   prevalentWind: WindValue
@@ -126,8 +127,15 @@ function scoreDecomposition(
 // ── Main scoring function ─────────────────────────────────────────────────────
 
 export function scoreHand(input: HandInput): ScoringResult {
+  // Patterns that inspect the whole hand (Full Flush, All Simples, …) need the
+  // declared melds too — `input.tiles` holds only the concealed portion.
+  const everyTile = [
+    ...input.tiles,
+    ...input.declaredMelds.flatMap((m) => m.tiles),
+  ]
+
   const ctx: ScoringContext = {
-    allTiles: input.tiles,
+    allTiles: everyTile,
     winningTile: input.winningTile,
     declaredMelds: input.declaredMelds,
     selfDraw: input.selfDraw,
@@ -210,6 +218,13 @@ export function scoreHand(input: HandInput): ScoringResult {
   }
 
   const { kept, excluded } = applyExclusions(raw.filter((r) => r.count > 0))
+
+  // 无番和 Chicken Hand — a legal hand scoring nothing at all is worth 8 by
+  // itself. It can only be evaluated once every other pattern has been counted,
+  // so it lives here rather than in ALL_PATTERNS.
+  if (kept.length === 0) {
+    kept.push({ pattern: CHICKEN_HAND, count: 1 })
+  }
 
   const fanPoints = kept.reduce((sum, { pattern, count }) => sum + pattern.points * count, 0)
   const flowerPoints = input.flowers

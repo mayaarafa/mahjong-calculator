@@ -164,8 +164,8 @@ describe('Pure Straight (清龙)', () => {
 
 // ── Mixed Straight ─────────────────────────────────────────────────────────────
 
-describe('Mixed Straight (三色三同顺)', () => {
-  test('123 in three suits scores Mixed Straight', () => {
+describe('Mixed Straight (花龙) vs Mixed Triple Chow (三色三同顺)', () => {
+  test('123 in all three suits is Mixed Triple Chow, not Mixed Straight', () => {
     const tiles = [
       t('bamboo',1),t('bamboo',2),t('bamboo',3),
       t('circles',1),t('circles',2),t('circles',3),
@@ -176,8 +176,24 @@ describe('Mixed Straight (三色三同顺)', () => {
     const result = scoreHand(makeInput({ tiles, winningTile: t('circles',5), waitType: 'pair' }))
     expect(result.isValid).toBe(true)
     const ids = result.matchedPatterns.map((p) => p.id)
-    expect(ids).toContain('mixed-straight')
+    expect(ids).toContain('mixed-triple-chow')
+    expect(ids).not.toContain('mixed-straight')
     expect(result.fanPoints).toBeGreaterThanOrEqual(8)
+  })
+
+  test('123 / 456 / 789 across the three suits scores Mixed Straight', () => {
+    const tiles = [
+      t('bamboo',1),t('bamboo',2),t('bamboo',3),
+      t('circles',4),t('circles',5),t('circles',6),
+      t('characters',7),t('characters',8),t('characters',9),
+      t('bamboo',5),t('bamboo',6),t('bamboo',7),
+      t('circles',9),t('circles',9),
+    ]
+    const result = scoreHand(makeInput({ tiles, winningTile: t('circles',9), waitType: 'pair' }))
+    expect(result.isValid).toBe(true)
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).toContain('mixed-straight')
+    expect(ids).not.toContain('mixed-triple-chow')
   })
 })
 
@@ -392,5 +408,273 @@ describe('Wait type scoring', () => {
     const result = scoreHand(makeInput({ tiles: baseTiles, winningTile: t('circles',8), waitType: 'pair' }))
     const ids = result.matchedPatterns.map((p) => p.id)
     expect(ids).toContain('single-tile-wait')
+  })
+})
+
+// ── Tile Hog vs kongs ─────────────────────────────────────────────────────────
+
+describe('tile hog', () => {
+  // A kong uses all 4 copies by definition, so it must not also score 四归一
+  test('a kong does not score tile hog', () => {
+    const tiles = [
+      t('circles',9),t('circles',9),t('circles',9),t('circles',9), // kong
+      t('winds','south'),t('winds','south'),t('winds','south'),
+      t('bamboo',2),t('bamboo',2),t('bamboo',2),
+      t('characters',3),t('characters',3),t('characters',3),
+      t('characters',7),t('characters',7),
+    ]
+    const result = scoreHand(makeInput({ tiles, winningTile: t('characters',7) }))
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).not.toContain('tile-hog')
+  })
+
+  test('4 copies split across sets without a kong still scores tile hog', () => {
+    const tiles = [
+      t('bamboo',3),t('bamboo',3),t('bamboo',3), // pung of 3b
+      t('bamboo',2),t('bamboo',3),t('bamboo',4), // 4th 3b lives in a chow
+      t('circles',4),t('circles',5),t('circles',6),
+      t('characters',2),t('characters',3),t('characters',4),
+      t('circles',8),t('circles',8),
+    ]
+    const result = scoreHand(makeInput({ tiles, winningTile: t('circles',8), waitType: 'pair' }))
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).toContain('tile-hog')
+  })
+})
+
+// ── Concealed vs exposed melds ────────────────────────────────────────────────
+
+describe('declared (exposed) melds', () => {
+  const fourPungTiles = [
+    t('bamboo',2),t('bamboo',2),t('bamboo',2),
+    t('circles',5),t('circles',5),t('circles',5),
+    t('characters',7),t('characters',7),t('characters',7),
+    t('winds','south'),t('winds','south'),t('winds','south'),
+    t('dragons','red'),t('dragons','red'),
+  ]
+
+  test('all four pungs concealed scores Four Concealed Pungs', () => {
+    const result = scoreHand(
+      makeInput({ tiles: fourPungTiles, winningTile: t('dragons','red'), waitType: 'pair' })
+    )
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).toContain('four-concealed-pungs')
+  })
+
+  test('one exposed pung means it is no longer Four Concealed Pungs', () => {
+    // Same hand, but the bamboo pung was claimed from a discard
+    const concealed = fourPungTiles.filter((tile) => tile.suit !== 'bamboo')
+    const result = scoreHand(
+      makeInput({
+        tiles: concealed,
+        winningTile: t('dragons','red'),
+        waitType: 'pair',
+        declaredMelds: [
+          { type: 'pung', tiles: [t('bamboo',2),t('bamboo',2),t('bamboo',2)], concealed: false },
+        ],
+      })
+    )
+    expect(result.isValid).toBe(true)
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).not.toContain('four-concealed-pungs')
+    expect(ids).toContain('all-pungs')
+  })
+
+  test('whole-hand patterns see exposed meld tiles', () => {
+    // Concealed portion is all bamboo, but the exposed pung is circles — so this
+    // is NOT a full flush. Fails if ctx.allTiles omits the declared meld.
+    const tiles = [
+      t('bamboo',2),t('bamboo',3),t('bamboo',4),
+      t('bamboo',5),t('bamboo',6),t('bamboo',7),
+      t('bamboo',7),t('bamboo',8),t('bamboo',9),
+      t('bamboo',1),t('bamboo',1),
+    ]
+    const result = scoreHand(
+      makeInput({
+        tiles,
+        winningTile: t('bamboo',1),
+        waitType: 'pair',
+        declaredMelds: [
+          { type: 'pung', tiles: [t('circles',5),t('circles',5),t('circles',5)], concealed: false },
+        ],
+      })
+    )
+    expect(result.isValid).toBe(true)
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).not.toContain('full-flush')
+  })
+
+  test('concealed-only hands do not fire when a set is exposed', () => {
+    // Nine Gates shape, but one pung was claimed — must not score 88
+    const tiles = [
+      t('bamboo',1),t('bamboo',2),t('bamboo',3),
+      t('bamboo',4),t('bamboo',5),t('bamboo',6),
+      t('bamboo',7),t('bamboo',8),t('bamboo',9),
+      t('bamboo',9),t('bamboo',9),
+    ]
+    const result = scoreHand(
+      makeInput({
+        tiles,
+        winningTile: t('bamboo',9),
+        waitType: 'pair',
+        declaredMelds: [
+          { type: 'pung', tiles: [t('bamboo',1),t('bamboo',1),t('bamboo',1)], concealed: false },
+        ],
+      })
+    )
+    const ids = result.matchedPatterns.map((p) => p.id)
+    expect(ids).not.toContain('nine-gates')
+  })
+})
+
+// ── Patterns added / corrected in the MCR audit ───────────────────────────────
+
+describe('MCR pattern table corrections', () => {
+  test('Last Tile is 4 points, not 8', () => {
+    const tiles = [
+      t('bamboo',2),t('bamboo',3),t('bamboo',4),
+      t('circles',3),t('circles',4),t('circles',5),
+      t('characters',5),t('characters',6),t('characters',7),
+      t('bamboo',6),t('bamboo',7),t('bamboo',8),
+      t('circles',8),t('circles',8),
+    ]
+    const result = scoreHand(makeInput({
+      tiles, winningTile: t('circles',8), waitType: 'pair', isLastTile: true,
+    }))
+    const p = result.matchedPatterns.find((x) => x.id === 'last-tile')
+    expect(p?.points).toBe(4)
+  })
+
+  test('Last Tile Draw and Last Tile Claim are 8 points, not 4', () => {
+    const tiles = [
+      t('bamboo',2),t('bamboo',3),t('bamboo',4),
+      t('circles',3),t('circles',4),t('circles',5),
+      t('characters',5),t('characters',6),t('characters',7),
+      t('bamboo',6),t('bamboo',7),t('bamboo',8),
+      t('circles',8),t('circles',8),
+    ]
+    const draw = scoreHand(makeInput({
+      tiles, winningTile: t('circles',8), waitType: 'pair', selfDraw: true, isLastDraw: true,
+    }))
+    expect(draw.matchedPatterns.find((x) => x.id === 'last-tile-draw')?.points).toBe(8)
+
+    const claim = scoreHand(makeInput({
+      tiles, winningTile: t('circles',8), waitType: 'pair', selfDraw: false, isLastClaim: true,
+    }))
+    expect(claim.matchedPatterns.find((x) => x.id === 'last-tile-claim')?.points).toBe(8)
+  })
+
+  test('Mixed Triple Chow scores 8 for the same chow in all three suits', () => {
+    const tiles = [
+      t('bamboo',3),t('bamboo',4),t('bamboo',5),
+      t('circles',3),t('circles',4),t('circles',5),
+      t('characters',3),t('characters',4),t('characters',5),
+      t('bamboo',7),t('bamboo',8),t('bamboo',9),
+      t('circles',2),t('circles',2),
+    ]
+    const result = scoreHand(makeInput({ tiles, winningTile: t('circles',2), waitType: 'pair' }))
+    const p = result.matchedPatterns.find((x) => x.id === 'mixed-triple-chow')
+    expect(p).toBeDefined()
+    expect(p?.points).toBe(8)
+  })
+
+  test('Two Concealed Kongs scores 6 and replaces Concealed Kong', () => {
+    const tiles = [
+      t('bamboo',2),t('bamboo',2),t('bamboo',2),t('bamboo',2),
+      t('circles',5),t('circles',5),t('circles',5),t('circles',5),
+      t('characters',7),t('characters',7),t('characters',7),
+      t('winds','south'),t('winds','south'),t('winds','south'),
+      t('dragons','red'),t('dragons','red'),
+    ]
+    const result = scoreHand(makeInput({ tiles, winningTile: t('dragons','red'), waitType: 'pair' }))
+    const ids = result.matchedPatterns.map((x) => x.id)
+    expect(ids).toContain('two-concealed-kongs')
+    expect(ids).not.toContain('concealed-kong')
+    expect(result.matchedPatterns.find((x) => x.id === 'two-concealed-kongs')?.points).toBe(6)
+  })
+
+  test('Chicken Hand scores 8 when nothing else matches', () => {
+    // One exposed pung of simples, three unrelated chows, honour pair,
+    // all three suits present, discard win with no wait bonus
+    const tiles = [
+      t('bamboo',2),t('bamboo',3),t('bamboo',4),
+      t('characters',5),t('characters',6),t('characters',7),
+      t('circles',7),t('circles',8),t('circles',9),
+      t('winds','east'),t('winds','east'),
+    ]
+    const result = scoreHand(makeInput({
+      tiles,
+      winningTile: t('bamboo',4),
+      waitType: 'two-sided',
+      seatWind: 'south',
+      prevalentWind: 'west',
+      declaredMelds: [
+        { type: 'pung', tiles: [t('circles',5),t('circles',5),t('circles',5)], concealed: false },
+      ],
+    }))
+    expect(result.isValid).toBe(true)
+    expect(result.matchedPatterns.map((x) => x.id)).toEqual(['chicken-hand'])
+    expect(result.fanPoints).toBe(8)
+  })
+})
+
+// ── Flowers and the winning minimum ───────────────────────────────────────────
+
+describe('flowers do not count toward the minimum', () => {
+  test('a 4-fan hand with 6 flowers still fails the 8-point minimum', () => {
+    // 4 chows + pair, discard win, concealed → concealed-hand (2) + all-chows (2)
+    const tiles = [
+      t('bamboo',2),t('bamboo',3),t('bamboo',4),
+      t('circles',3),t('circles',4),t('circles',5),
+      t('characters',5),t('characters',6),t('characters',7),
+      t('bamboo',6),t('bamboo',7),t('bamboo',8),
+      t('circles',8),t('circles',8),
+    ]
+    const result = scoreHand(makeInput({
+      tiles, winningTile: t('circles',8), waitType: 'pair', flowers: 6,
+    }))
+    expect(result.flowerPoints).toBe(6)
+    expect(result.fanPoints).toBeLessThan(8)
+    expect(result.meetsMinimum).toBe(false)
+    // but flowers still count toward what is actually paid
+    expect(result.totalPoints).toBe(result.fanPoints + 6)
+  })
+})
+
+// ── Payment styles ────────────────────────────────────────────────────────────
+
+describe('payment styles', () => {
+  const tiles = [
+    t('bamboo',1),t('bamboo',2),t('bamboo',3),
+    t('bamboo',4),t('bamboo',5),t('bamboo',6),
+    t('bamboo',7),t('bamboo',8),t('bamboo',9),
+    t('circles',3),t('circles',4),t('circles',5),
+    t('circles',7),t('circles',7),
+  ]
+
+  test('MCR: everyone pays base, discarder also pays the hand', () => {
+    const r = scoreHand(makeInput({ tiles, winningTile: t('circles',7), waitType: 'pair' }))
+    const p = r.payment(8, 'mcr')
+    expect(p.eachPlayerPays).toBe(8)
+    expect(p.discarderPays).toBe(8 + p.totalHandPoints)
+    expect(p.totalReceived).toBe(8 * 2 + 8 + p.totalHandPoints)
+  })
+
+  test('discarder-all: discarder covers all three shares', () => {
+    const r = scoreHand(makeInput({ tiles, winningTile: t('circles',7), waitType: 'pair' }))
+    const p = r.payment(8, 'discarder-all')
+    expect(p.eachPlayerPays).toBe(0)
+    expect(p.discarderPays).toBe(3 * (8 + p.totalHandPoints))
+    expect(p.totalReceived).toBe(p.discarderPays)
+  })
+
+  test('self-draw: all three opponents pay equally regardless of style', () => {
+    const r = scoreHand(makeInput({
+      tiles, winningTile: t('circles',7), waitType: 'pair', selfDraw: true,
+    }))
+    const p = r.payment(8, 'single-pay')
+    expect(p.selfDraw).toBe(true)
+    expect(p.eachPlayerPays).toBe(8 + p.totalHandPoints)
+    expect(p.totalReceived).toBe(3 * (8 + p.totalHandPoints))
   })
 })
